@@ -30,16 +30,22 @@ export default function LoanDetailView() {
     setLoading(true);
     Promise.all([
       fetch('/api/auth/me', { credentials: 'include' }).then(res => res.ok ? res.json() : null),
-      fetch(`/api/loans`, { credentials: 'include' }).then(res => res.ok ? res.json() : [])
-    ]).then(([userData, loansData]) => {
+      fetch(`/api/loans/${id}`, { credentials: 'include' }).then(async res => {
+        if (res.status === 403) throw new Error('Forbidden');
+        return res.ok ? res.json() : null;
+      })
+    ]).then(([userData, loanData]) => {
       setUser(userData);
-      const foundLoan = Array.isArray(loansData) ? loansData.find((l: any) => l._id === id) : null;
-      setLoan(foundLoan);
+      setLoan(loanData);
       setLoading(false);
-    }).catch(() => {
+    }).catch((err) => {
+      console.error(err);
+      if (err.message === 'Forbidden') {
+        navigate('/dashboard');
+      }
       setLoading(false);
     });
-  }, [id]);
+  }, [id, navigate]);
 
   const handleStatusUpdate = async (status: string) => {
     setUpdating(true);

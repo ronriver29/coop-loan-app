@@ -26,6 +26,8 @@ import DashboardView from './views/DashboardView';
 import LoanApplicationView from './views/LoanApplicationView';
 import LoanDetailView from './views/LoanDetailView';
 import AdminQueueView from './views/AdminQueueView';
+import AdminMembersView from './views/AdminMembersView';
+import ProfileView from './views/ProfileView';
 import PaymentsView from './views/PaymentsView';
 
 export default function App() {
@@ -65,7 +67,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={user ? <Navigate to="/" /> : <AuthPage onLogin={setUser} />} />
-        <Route path="/*" element={user ? <Shell user={user} onLogout={() => setUser(null)} /> : <Navigate to="/login" />} />
+        <Route path="/*" element={user ? <Shell user={user} onLogout={() => setUser(null)} onUpdate={setUser} /> : <Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>
   );
@@ -100,7 +102,7 @@ function NavLink({ to, icon: Icon, label }: NavLinkProps) {
   );
 }
 
-function Shell({ user, onLogout }: { user: User, onLogout: () => void }) {
+function Shell({ user, onLogout, onUpdate }: { user: User, onLogout: () => void, onUpdate: (user: User) => void }) {
   const navigate = useNavigate();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   
@@ -114,7 +116,9 @@ function Shell({ user, onLogout }: { user: User, onLogout: () => void }) {
     { label: 'Summary', icon: LayoutDashboard, path: '/', roles: ['Member', 'Admin'] },
     { label: 'Application', icon: PlusCircle, path: '/apply', roles: ['Member'] },
     { label: 'Approval', icon: Users, path: '/admin/queue', roles: ['Admin'] },
+    { label: 'Members', icon: Briefcase, path: '/admin/members', roles: ['Admin'] },
     { label: 'Payments', icon: Wallet, path: '/payments', roles: ['Member', 'Admin'] },
+    { label: 'Profile', icon: Settings, path: '/profile', roles: ['Member', 'Admin'] },
   ];
 
   const filteredNav = navItems.filter(item => item.roles.includes(user.role));
@@ -181,7 +185,11 @@ function Shell({ user, onLogout }: { user: User, onLogout: () => void }) {
                 </nav>
 
                 <div className="space-y-8">
-                  <div className="p-6 bg-white/5 rounded-[2rem] border border-white/5 transition-all hover:bg-white/10 group">
+                  <Link 
+                    to="/profile"
+                    onClick={() => setSidebarOpen(false)}
+                    className="block p-6 bg-white/5 rounded-[2rem] border border-white/5 transition-all hover:bg-white/10 group"
+                  >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-2xl bg-natural-sage/20 border border-natural-sage/40 flex items-center justify-center text-xs font-bold text-natural-sage tracking-tighter group-hover:scale-110 transition-transform">
                         {user.name.split(' ').map(n => n[0]).join('')}
@@ -191,13 +199,13 @@ function Shell({ user, onLogout }: { user: User, onLogout: () => void }) {
                         <p className="text-[10px] uppercase tracking-[0.2em] font-black text-natural-sage mt-0.5">{user.role}</p>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="flex items-center justify-center gap-3 w-full py-5 text-[10px] font-black uppercase tracking-[0.3em] text-white/30 rounded-[2rem] border border-white/5 hover:bg-red-900/20 hover:text-red-400 hover:border-red-900/40 transition-all active:scale-[0.98]"
                   >
                     <LogOut className="h-4 w-4" />
-                    Terminate Activity
+                    Log Out
                   </button>
                 </div>
               </div>
@@ -232,6 +240,8 @@ function Shell({ user, onLogout }: { user: User, onLogout: () => void }) {
                 <Route path="/apply" element={<LoanApplicationView user={user} />} />
                 <Route path="/tracker" element={<DashboardView user={user} />} />
                 <Route path="/admin/queue" element={<AdminQueueView />} />
+                <Route path="/admin/members" element={<AdminMembersView />} />
+                <Route path="/profile" element={<ProfileView user={user} onUpdate={onUpdate} />} />
                 <Route path="/loan/:id" element={<LoanDetailView />} />
                 <Route path="/payments" element={<PaymentsView />} />
                 <Route path="*" element={<Navigate to="/" />} />

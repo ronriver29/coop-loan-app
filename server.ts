@@ -24,6 +24,7 @@ const MONGODB_URI = isValidUri ? rawUri : 'mongodb://localhost:27017/loan_manage
 
 async function startServer() {
   const app = express();
+  app.set('trust proxy', 1); // Trust the first proxy (Cloud Run)
   app.use(express.json());
   app.use(cookieParser());
 
@@ -69,18 +70,40 @@ async function startServer() {
     next();
   };
 
+  // --- Helpers ---
+  const handleMongoError = (err: any, res: any) => {
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern || {})[0] || 'account';
+      const formattedField = field === 'memberId' ? 'Member ID' : field.charAt(0).toUpperCase() + field.slice(1);
+      return res.status(409).json({ error: `Conflicting Record: ${formattedField} already exists in our archives.` });
+    }
+    return res.status(400).json({ error: err.message });
+  };
+
   // --- API Routes ---
 
   // Auth
-  app.post('/api/auth/register', checkDb, async (req, res) => {
+  app.post('/api/auth/register', authenticate, isAdmin, checkDb, async (req, res) => {
     try {
-      const { memberId, name, email, password, role } = req.body;
+      const { memberId, name, email, password, role, contactNumber, region, province, city, barangay, streetAddress } = req.body;
       const hashedPassword = await bcrypt.hash(password, 10);
-      const user = new User({ memberId, name, email, password: hashedPassword, role });
+      const user = new User({ 
+        memberId, 
+        name, 
+        email, 
+        contactNumber,
+        password: hashedPassword, 
+        role, 
+        region, 
+        province, 
+        city, 
+        barangay, 
+        streetAddress 
+      });
       await user.save();
       res.status(201).json({ message: 'User registered' });
     } catch (err: any) {
-      res.status(400).json({ error: err.message });
+      handleMongoError(err, res);
     }
   });
 
@@ -91,14 +114,38 @@ async function startServer() {
       if (!user || !(await bcrypt.compare(password, user.password))) {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
-      const token = jwt.sign({ id: user._id, role: user.role, memberId: user.memberId, name: user.name }, JWT_SECRET, { expiresIn: '1d' });
+      const token = jwt.sign({ 
+        id: user._id, 
+        role: user.role, 
+        memberId: user.memberId, 
+        name: user.name,
+        email: user.email,
+        contactNumber: user.contactNumber || '',
+        region: user.region || '',
+        province: user.province || '',
+        city: user.city || '',
+        barangay: user.barangay || '',
+        streetAddress: user.streetAddress || ''
+      }, JWT_SECRET, { expiresIn: '1d' });
       res.cookie('token', token, { 
         httpOnly: true, 
         secure: true, 
         sameSite: 'none',
         maxAge: 24 * 60 * 60 * 1000 // 1 day
       });
-      res.json({ id: user._id, role: user.role, memberId: user.memberId, name: user.name });
+      res.json({ 
+        id: user._id, 
+        role: user.role, 
+        memberId: user.memberId, 
+        name: user.name,
+        email: user.email,
+        contactNumber: user.contactNumber || '',
+        region: user.region || '',
+        province: user.province || '',
+        city: user.city || '',
+        barangay: user.barangay || '',
+        streetAddress: user.streetAddress || ''
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -111,6 +158,75 @@ async function startServer() {
 
   app.get('/api/auth/me', authenticate, (req: any, res) => {
     res.json(req.user);
+  });
+
+  app.get('/api/users', authenticate, isAdmin, checkDb, async (req, res) => {
+    try {
+      const users = await User.find({}, '-password').sort({ createdAt: -1 });
+      res.json(users);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.patch('/api/auth/profile', authenticate, checkDb, async (req: any, res) => {
+    try {
+      const { name, email, password, contactNumber, region, province, city, barangay, streetAddress } = req.body;
+      const user = await User.findById(req.user.id);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      if (name) user.name = name;
+      if (email) user.email = email;
+      if (contactNumber !== undefined) user.contactNumber = contactNumber;
+      if (region !== undefined) user.region = region;
+      if (province !== undefined) user.province = province;
+      if (city !== undefined) user.city = city;
+      if (barangay !== undefined) user.barangay = barangay;
+      if (streetAddress !== undefined) user.streetAddress = streetAddress;
+      if (password) {
+        user.password = await bcrypt.hash(password, 10);
+      }
+
+      await user.save();
+
+      // Update JWT in cookie with new info
+      const token = jwt.sign({ 
+        id: user._id, 
+        role: user.role, 
+        memberId: user.memberId, 
+        name: user.name,
+        email: user.email,
+        contactNumber: user.contactNumber || '',
+        region: user.region || '',
+        province: user.province || '',
+        city: user.city || '',
+        barangay: user.barangay || '',
+        streetAddress: user.streetAddress || ''
+      }, JWT_SECRET, { expiresIn: '1d' });
+      
+      res.cookie('token', token, { 
+        httpOnly: true, 
+        secure: true, 
+        sameSite: 'none',
+        maxAge: 24 * 60 * 60 * 1000 
+      });
+
+      res.json({ 
+        id: user._id, 
+        role: user.role, 
+        memberId: user.memberId, 
+        name: user.name,
+        email: user.email,
+        contactNumber: user.contactNumber || '',
+        region: user.region || '',
+        province: user.province || '',
+        city: user.city || '',
+        barangay: user.barangay || '',
+        streetAddress: user.streetAddress || ''
+      });
+    } catch (err: any) {
+      handleMongoError(err, res);
+    }
   });
 
   // Loans
@@ -170,6 +286,21 @@ async function startServer() {
       const query = req.user.role === 'Admin' ? {} : { memberId: req.user.memberId };
       const loans = await Loan.find(query).sort({ createdAt: -1 });
       res.json(loans);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/loans/:id', authenticate, checkDb, async (req: any, res) => {
+    try {
+      const loan = await Loan.findById(req.params.id);
+      if (!loan) return res.status(404).json({ error: 'Loan not found' });
+      
+      if (req.user.role !== 'Admin' && loan.memberId !== req.user.memberId) {
+        return res.status(403).json({ error: 'Forbidden: You do not own this loan' });
+      }
+      
+      res.json(loan);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -240,7 +371,7 @@ async function startServer() {
       await payment.save();
       res.status(201).json(payment);
     } catch (err: any) {
-      res.status(400).json({ error: err.message });
+      handleMongoError(err, res);
     }
   });
 

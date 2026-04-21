@@ -21,25 +21,20 @@ export default function AuthPage({ onLogin }: { onLogin: (user: User) => void })
     setLoading(true);
     setError('');
 
-    const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+    const endpoint = '/api/auth/login';
     
     try {
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(isLogin ? { email: formData.email, password: formData.password } : formData)
+        body: JSON.stringify({ email: formData.email, password: formData.password })
       });
       
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      if (isLogin) {
-        onLogin(data);
-      } else {
-        setIsLogin(true);
-        setError('Registration successful. Please log in.');
-      }
+      onLogin(data);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -91,62 +86,16 @@ export default function AuthPage({ onLogin }: { onLogin: (user: User) => void })
         <div className="p-8 lg:p-16 bg-white flex flex-col justify-center">
           <div className="mb-10 lg:mb-14 text-left">
             <h2 className="text-2xl lg:text-4xl font-display font-black text-natural-ink mb-2 lg:mb-3 tracking-tight">
-              {isLogin ? 'Access Portal' : 'Join Cooperative'}
+              Access Portal
             </h2>
             <p className="text-slate-400 text-xs lg:text-sm font-medium">
-              {isLogin ? 'Authenticating with the central ledger...' : 'Enrolling in the mutual credit program.'}
+              Authenticating with the central ledger...
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6 lg:space-y-8 text-left">
-            {!isLogin && (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5">
-                  <div className="space-y-2.5">
-                    <label className="text-micro">Member Serial</label>
-                    <div className="relative">
-                      <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
-                      <input
-                        required
-                        type="text"
-                        placeholder="M-0001"
-                        className="organic-input pl-12 font-mono text-xs tracking-wider"
-                        value={formData.memberId}
-                        onChange={e => setFormData({ ...formData, memberId: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2.5">
-                    <label className="text-micro">Legal Identity</label>
-                    <div className="relative">
-                      <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
-                      <input
-                        required
-                        type="text"
-                        placeholder="Juana Dela Cruz"
-                        className="organic-input pl-12 font-medium"
-                        value={formData.name}
-                        onChange={e => setFormData({ ...formData, name: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-2.5 text-left">
-                  <label className="text-micro block">Permission Tier</label>
-                  <select 
-                    className="organic-input appearance-none bg-no-repeat bg-[right_1rem_center] cursor-pointer font-medium"
-                    value={formData.role}
-                    onChange={e => setFormData({ ...formData, role: e.target.value as any })}
-                  >
-                    <option value="Member">General Member</option>
-                    <option value="Admin">Administrator</option>
-                  </select>
-                </div>
-              </>
-            )}
-
             <div className="space-y-2.5">
-              <label className="text-micro">Communication Endpoint</label>
+              <label className="text-micro">Email</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
                 <input
@@ -161,7 +110,7 @@ export default function AuthPage({ onLogin }: { onLogin: (user: User) => void })
             </div>
 
             <div className="space-y-2.5">
-              <label className="text-micro">Authentication Token</label>
+              <label className="text-micro">Password</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
                 <input
@@ -191,15 +140,7 @@ export default function AuthPage({ onLogin }: { onLogin: (user: User) => void })
               type="submit"
               className="w-full bg-natural-sidebar text-white font-bold py-5 rounded-2xl hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-50 mt-6 shadow-xl shadow-black/10 uppercase tracking-[0.3em] text-[10px]"
             >
-              {loading ? 'Decrypting Access...' : (isLogin ? 'Establish Session' : 'Commit Registration')}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="w-full py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-natural-sage transition-all underline decoration-natural-line underline-offset-8"
-            >
-              {isLogin ? "Generate New Membership Account" : "Return to Access Portal"}
+              {loading ? 'Decrypting Access...' : 'Log In'}
             </button>
           </form>
         </div>

@@ -4,6 +4,13 @@ export interface User {
   id: string;
   memberId: string;
   name: string;
+  email: string;
+  contactNumber: string;
+  region: string;
+  province: string;
+  city: string;
+  barangay: string;
+  streetAddress: string;
   role: UserRole;
 }
 
