@@ -8,6 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { User, Loan, Payment } from './models.ts';
+import { sendWelcomeEmail, sendLoanStatusUpdate } from './src/services/emailService.ts';
 
 dotenv.config();
 
@@ -101,6 +102,10 @@ async function startServer() {
         streetAddress 
       });
       await user.save();
+      
+      // Async send email (don't block response)
+      sendWelcomeEmail(email, name, password).catch(console.error);
+
       res.status(201).json({ message: 'User registered' });
     } catch (err: any) {
       handleMongoError(err, res);
@@ -324,6 +329,13 @@ async function startServer() {
       }
 
       await loan.save();
+
+      // Notify User
+      const borrower = await User.findOne({ memberId: loan.memberId });
+      if (borrower && borrower.email) {
+        sendLoanStatusUpdate(borrower.email, borrower.name, loan._id.toString(), status, comment || '').catch(console.error);
+      }
+
       res.json(loan);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
