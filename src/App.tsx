@@ -13,7 +13,9 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  FileText
+  FileText,
+  Menu,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from './types';
@@ -31,7 +33,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/auth/me')
+    fetch('/api/auth/me', { credentials: 'include' })
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         setUser(data);
@@ -41,10 +43,20 @@ export default function App() {
   }, []);
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="animate-pulse flex flex-col items-center">
-        <div className="h-12 w-12 bg-indigo-600 rounded-xl mb-4" />
-        <p className="text-gray-500 font-medium">CoopLoan Manager</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-natural-bg">
+      <div className="flex flex-col items-center">
+        <div className="h-16 w-16 bg-natural-sidebar rounded-[2rem] mb-6 flex items-center justify-center animate-pulse shadow-xl shadow-natural-sidebar/10">
+          <FileText className="h-7 w-7 text-natural-sage" />
+        </div>
+        <p className="text-natural-ink font-display font-black text-xl tracking-tight mb-2">CoopTrust v2</p>
+        <div className="h-1 w-40 bg-natural-line rounded-full overflow-hidden">
+          <motion.div 
+            initial={{ x: '-100%' }}
+            animate={{ x: '100%' }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
+            className="h-full w-1/3 bg-natural-sage"
+          />
+        </div>
       </div>
     </div>
   );
@@ -73,106 +85,159 @@ function NavLink({ to, icon: Icon, label }: NavLinkProps) {
   return (
     <Link
       to={to}
-      className={`flex items-center gap-3 px-3 py-3 text-sm font-medium rounded-lg transition-all ${
+      className={`flex items-center justify-between px-5 py-4 text-xs font-bold uppercase tracking-[0.2em] rounded-[2rem] transition-all group ${
         isActive
-        ? 'bg-natural-sage/20 text-white border-l-4 border-natural-sage shadow-inner'
-        : 'text-natural-bg/60 hover:text-white hover:bg-white/5'
+        ? 'bg-natural-sage text-white shadow-xl shadow-natural-sage/10 translate-x-2'
+        : 'text-white/40 hover:text-white hover:bg-white/5'
       }`}
     >
-      <Icon className="h-4.5 w-4.5" />
-      {label}
+      <div className="flex items-center gap-4">
+        <Icon className={`h-4 w-4 transition-colors ${isActive ? 'text-white' : 'text-natural-sage/50 group-hover:text-natural-sage'}`} />
+        {label}
+      </div>
+      {isActive && <ChevronRight className="h-3 w-3" />}
     </Link>
   );
 }
 
 function Shell({ user, onLogout }: { user: User, onLogout: () => void }) {
   const navigate = useNavigate();
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
   
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     onLogout();
     navigate('/login');
   };
 
   const navItems = [
-    { label: 'Overview', icon: LayoutDashboard, path: '/', roles: ['Member', 'Admin'] },
-    { label: 'New Application', icon: PlusCircle, path: '/apply', roles: ['Member'] },
-    { label: 'Loan Tracker', icon: Clock, path: '/tracker', roles: ['Member'] },
-    { label: 'Approval Queue', icon: Users, path: '/admin/queue', roles: ['Admin'] },
-    { label: 'Disbursements', icon: Wallet, path: '/payments', roles: ['Member', 'Admin'] },
+    { label: 'Summary', icon: LayoutDashboard, path: '/', roles: ['Member', 'Admin'] },
+    { label: 'Application', icon: PlusCircle, path: '/apply', roles: ['Member'] },
+    { label: 'Approval', icon: Users, path: '/admin/queue', roles: ['Admin'] },
+    { label: 'Payments', icon: Wallet, path: '/payments', roles: ['Member', 'Admin'] },
   ];
 
   const filteredNav = navItems.filter(item => item.roles.includes(user.role));
 
   return (
-    <div className="flex min-h-screen bg-natural-bg">
-      {/* Sidebar */}
-      <aside className="w-72 bg-natural-sidebar text-natural-bg border-r border-natural-line flex flex-col shrink-0">
-        <div className="p-8">
-          <div className="flex items-center gap-3 mb-12">
-            <div className="h-9 w-9 bg-natural-sage rounded flex items-center justify-center shadow-lg shadow-black/20">
-              <FileText className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-serif font-black text-xl tracking-tight italic">CoopTrust v2</span>
-          </div>
+    <div className="flex h-screen bg-natural-bg overflow-hidden relative">
+      {/* Mobile Toggle Button */}
+      <button 
+        onClick={() => setSidebarOpen(true)}
+        className="lg:hidden fixed top-6 left-6 z-30 p-3 bg-natural-sidebar text-white rounded-2xl shadow-xl active:scale-95 transition-all"
+      >
+        <Menu className="h-6 w-6" />
+      </button>
 
-          <nav className="space-y-1.5">
-            {filteredNav.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                icon={item.icon}
-                label={item.label}
+      {/* Sidebar - Desktop & Mobile */}
+      <AnimatePresence>
+        {(isSidebarOpen || window.innerWidth >= 1024) && (
+          <>
+            {/* Backdrop for mobile */}
+            {isSidebarOpen && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setSidebarOpen(false)}
+                className="lg:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
               />
-            ))}
-          </nav>
-        </div>
+            )}
+            
+            <motion.aside 
+              initial={{ x: -320 }}
+              animate={{ x: 0 }}
+              exit={{ x: -320 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className={`fixed lg:static inset-y-0 left-0 w-80 bg-natural-sidebar text-natural-bg flex flex-col shrink-0 z-50 lg:z-20`}
+            >
+              <div className="p-10 flex flex-col h-full">
+                <div className="flex items-center justify-between mb-16 px-2">
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 bg-natural-sage rounded-2xl flex items-center justify-center shadow-lg shadow-black/20">
+                      <FileText className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="font-display font-black text-2xl tracking-tighter text-white">CoopTrust v2</span>
+                  </div>
+                  <button 
+                    onClick={() => setSidebarOpen(false)}
+                    className="lg:hidden p-2 text-white/40 hover:text-white"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
 
-        <div className="mt-auto p-6">
-          <div className="p-5 bg-white/5 rounded-xl mb-6 border border-white/5">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-natural-sage/20 border border-natural-sage/40 flex items-center justify-center text-xs font-bold text-natural-sage">
-                {user.name.split(' ').map(n => n[0]).join('')}
+                <nav className="space-y-4 flex-1">
+                  <p className="text-micro text-white/20 px-5 mb-6">Master Ledger</p>
+                  {filteredNav.map((item) => (
+                    <div key={item.path} onClick={() => setSidebarOpen(false)}>
+                      <NavLink
+                        to={item.path}
+                        icon={item.icon}
+                        label={item.label}
+                      />
+                    </div>
+                  ))}
+                </nav>
+
+                <div className="space-y-8">
+                  <div className="p-6 bg-white/5 rounded-[2rem] border border-white/5 transition-all hover:bg-white/10 group">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-natural-sage/20 border border-natural-sage/40 flex items-center justify-center text-xs font-bold text-natural-sage tracking-tighter group-hover:scale-110 transition-transform">
+                        {user.name.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-white truncate">{user.name}</p>
+                        <p className="text-[10px] uppercase tracking-[0.2em] font-black text-natural-sage mt-0.5">{user.role}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center justify-center gap-3 w-full py-5 text-[10px] font-black uppercase tracking-[0.3em] text-white/30 rounded-[2rem] border border-white/5 hover:bg-red-900/20 hover:text-red-400 hover:border-red-900/40 transition-all active:scale-[0.98]"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Terminate Activity
+                  </button>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-white truncate">{user.name}</p>
-                <p className="text-[10px] uppercase tracking-[0.2em] font-black text-natural-sage">{user.role}</p>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center justify-center gap-3 w-full py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40 rounded-lg border border-white/5 hover:bg-red-900/20 hover:text-red-400 hover:border-red-900/40 transition-all"
-          >
-            <LogOut className="h-4 w-4" />
-            Terminate Session
-          </button>
-        </div>
-      </aside>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto flex flex-col">
-        <header className="h-16 bg-white border-b border-natural-line px-8 flex items-center justify-between sticky top-0 z-10">
-          <h1 className="text-xl font-serif font-bold text-natural-ink">Loan Management System</h1>
-          <div className="flex items-center gap-4">
-            <button className="p-2 text-natural-ink/40 hover:text-natural-sage transition-colors">
-              <Settings className="h-5 w-5" />
+      <main className="flex-1 flex flex-col relative z-10 overflow-hidden">
+        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-natural-line px-6 lg:px-10 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-4 pl-12 lg:pl-0">
+            <div className="h-2 w-2 rounded-full bg-natural-sage hidden sm:block" />
+            <h1 className="text-[10px] lg:text-sm font-bold text-natural-ink uppercase tracking-[0.2em] lg:tracking-[0.3em] truncate">Institutional Repository</h1>
+          </div>
+          <div className="flex items-center gap-4 lg:gap-6">
+            <div className="flex flex-col items-end hidden sm:flex">
+              <p className="text-micro leading-none mb-1">System Health</p>
+              <p className="text-[10px] font-bold text-natural-sage uppercase tracking-widest">Active & Secured</p>
+            </div>
+            <button className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-natural-bg transition-colors border border-natural-line">
+              <Settings className="h-4 w-4 text-natural-ink" />
             </button>
           </div>
         </header>
 
-        <div className="p-8 max-w-7xl mx-auto w-full">
-          <AnimatePresence mode="wait">
-            <Routes>
-              <Route path="/" element={<DashboardView user={user} />} />
-              <Route path="/apply" element={<LoanApplicationView user={user} />} />
-              <Route path="/tracker" element={<DashboardView user={user} />} />
-              <Route path="/admin/queue" element={<AdminQueueView />} />
-              <Route path="/loan/:id" element={<LoanDetailView />} />
-              <Route path="/payments" element={<PaymentsView />} />
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-          </AnimatePresence>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 lg:p-12 bg-pattern">
+          <div className="max-w-6xl mx-auto w-full">
+            <AnimatePresence mode="wait">
+              <Routes>
+                <Route path="/" element={<DashboardView user={user} />} />
+                <Route path="/apply" element={<LoanApplicationView user={user} />} />
+                <Route path="/tracker" element={<DashboardView user={user} />} />
+                <Route path="/admin/queue" element={<AdminQueueView />} />
+                <Route path="/loan/:id" element={<LoanDetailView />} />
+                <Route path="/payments" element={<PaymentsView />} />
+                <Route path="*" element={<Navigate to="/" />} />
+              </Routes>
+            </AnimatePresence>
+          </div>
         </div>
       </main>
     </div>

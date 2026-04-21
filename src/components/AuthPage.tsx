@@ -27,6 +27,7 @@ export default function AuthPage({ onLogin }: { onLogin: (user: User) => void })
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(isLogin ? { email: formData.email, password: formData.password } : formData)
       });
       
@@ -47,10 +48,10 @@ export default function AuthPage({ onLogin }: { onLogin: (user: User) => void })
   };
 
   return (
-    <div className="min-h-screen bg-natural-bg flex items-center justify-center p-4">
-      <div className="max-w-[1000px] w-full grid md:grid-cols-2 bg-white rounded-xl overflow-hidden shadow-xl border border-natural-line">
+    <div className="min-h-screen bg-natural-bg flex items-center justify-center p-4 lg:p-8">
+      <div className="max-w-[1000px] w-full grid lg:grid-cols-2 bg-white rounded-[2rem] overflow-hidden shadow-2xl border border-natural-line">
         {/* Left Side: Branding */}
-        <div className="bg-natural-sidebar p-12 text-natural-bg flex flex-col justify-between relative overflow-hidden">
+        <div className="bg-natural-sidebar p-8 lg:p-12 text-natural-bg flex flex-col justify-between relative overflow-hidden min-h-[300px] lg:min-h-0">
           <div className="absolute top-0 right-0 -mr-20 -mt-20 h-64 w-64 bg-natural-sage rounded-full blur-3xl opacity-20" />
           <div className="absolute bottom-0 left-0 -ml-20 -mb-20 h-64 w-64 bg-natural-line rounded-full blur-3xl opacity-10" />
           
@@ -62,78 +63,78 @@ export default function AuthPage({ onLogin }: { onLogin: (user: User) => void })
               <span className="text-2xl font-bold tracking-tight">CoopTrust v2</span>
             </div>
 
-            <h1 className="text-4xl font-serif font-black leading-tight mb-8 italic">
+            <h1 className="text-2xl lg:text-4xl font-display font-black leading-tight mb-4 lg:mb-8">
               Empowering Members Through Responsible Financial Solutions.
             </h1>
-            <p className="text-natural-bg/60 text-lg font-serif">
+            <p className="text-natural-bg/60 text-sm lg:text-lg font-sans opacity-80">
               A modern cooperative management platform designed for sustainability and mutual growth.
             </p>
           </div>
 
-          <div className="relative z-10 grid grid-cols-3 gap-6 pt-12 border-t border-white/10 uppercase tracking-widest text-[10px] font-bold">
+          <div className="relative z-10 grid grid-cols-3 gap-4 lg:gap-6 pt-8 lg:pt-12 border-t border-white/10 uppercase tracking-widest text-[8px] lg:text-[10px] font-bold">
             <div>
-              <p className="text-2xl font-black italic font-serif text-white">12%</p>
+              <p className="text-xl lg:text-2xl font-black font-display text-white">12%</p>
               <p className="text-white/40">Fixed APR</p>
             </div>
             <div>
-              <p className="text-2xl font-black italic font-serif text-white">24h</p>
+              <p className="text-xl lg:text-2xl font-black font-display text-white">24h</p>
               <p className="text-white/40">Queue Time</p>
             </div>
             <div>
-              <ShieldCheck className="h-8 w-8 text-natural-sage mb-1" />
+              <ShieldCheck className="h-6 w-6 lg:h-8 lg:w-8 text-natural-sage mb-1" />
               <p className="text-white/40">Audit Ready</p>
             </div>
           </div>
         </div>
 
         {/* Right Side: Form */}
-        <div className="p-12 bg-white">
-          <div className="mb-12">
-            <h2 className="text-3xl font-serif font-black text-natural-ink mb-3 italic">
+        <div className="p-8 lg:p-16 bg-white flex flex-col justify-center">
+          <div className="mb-10 lg:mb-14 text-left">
+            <h2 className="text-2xl lg:text-4xl font-display font-black text-natural-ink mb-2 lg:mb-3 tracking-tight">
               {isLogin ? 'Access Portal' : 'Join Cooperative'}
             </h2>
-            <p className="text-gray-400 text-sm">
-              {isLogin ? 'Enter your credentials to manage records' : 'Begin your financial membership today'}
+            <p className="text-slate-400 text-xs lg:text-sm font-medium">
+              {isLogin ? 'Authenticating with the central ledger...' : 'Enrolling in the mutual credit program.'}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6 text-left">
+          <form onSubmit={handleSubmit} className="space-y-6 lg:space-y-8 text-left">
             {!isLogin && (
               <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Member ID</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5">
+                  <div className="space-y-2.5">
+                    <label className="text-micro">Member Serial</label>
                     <div className="relative">
-                      <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
+                      <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
                       <input
                         required
                         type="text"
                         placeholder="M-0001"
-                        className="w-full pl-10 pr-4 py-3 bg-natural-bg border border-natural-line rounded-lg focus:outline-none focus:ring-1 focus:ring-natural-sage focus:bg-white transition-all text-sm font-mono"
+                        className="organic-input pl-12 font-mono text-xs tracking-wider"
                         value={formData.memberId}
                         onChange={e => setFormData({ ...formData, memberId: e.target.value })}
                       />
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Legal Name</label>
+                  <div className="space-y-2.5">
+                    <label className="text-micro">Legal Identity</label>
                     <div className="relative">
-                      <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
+                      <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
                       <input
                         required
                         type="text"
                         placeholder="Juana Dela Cruz"
-                        className="w-full pl-10 pr-4 py-3 bg-natural-bg border border-natural-line rounded-lg focus:outline-none focus:ring-1 focus:ring-natural-sage focus:bg-white transition-all text-sm"
+                        className="organic-input pl-12 font-medium"
                         value={formData.name}
                         onChange={e => setFormData({ ...formData, name: e.target.value })}
                       />
                     </div>
                   </div>
                 </div>
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Account Authority</label>
+                <div className="space-y-2.5 text-left">
+                  <label className="text-micro block">Permission Tier</label>
                   <select 
-                    className="w-full px-4 py-3 bg-natural-bg border border-natural-line rounded-lg focus:outline-none focus:ring-1 focus:ring-natural-sage focus:bg-white transition-all text-sm font-bold uppercase tracking-widest"
+                    className="organic-input appearance-none bg-no-repeat bg-[right_1rem_center] cursor-pointer font-medium"
                     value={formData.role}
                     onChange={e => setFormData({ ...formData, role: e.target.value as any })}
                   >
@@ -144,30 +145,30 @@ export default function AuthPage({ onLogin }: { onLogin: (user: User) => void })
               </>
             )}
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Email Address</label>
+            <div className="space-y-2.5">
+              <label className="text-micro">Communication Endpoint</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
                 <input
                   required
                   type="email"
                   placeholder="name@example.com"
-                  className="w-full pl-10 pr-4 py-3 bg-natural-bg border border-natural-line rounded-lg focus:outline-none focus:ring-1 focus:ring-natural-sage focus:bg-white transition-all text-sm"
+                  className="organic-input pl-12 font-medium"
                   value={formData.email}
                   onChange={e => setFormData({ ...formData, email: e.target.value })}
                 />
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Secret Key</label>
+            <div className="space-y-2.5">
+              <label className="text-micro">Authentication Token</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
                 <input
                   required
                   type="password"
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-3 bg-natural-bg border border-natural-line rounded-lg focus:outline-none focus:ring-1 focus:ring-natural-sage focus:bg-white transition-all text-sm"
+                  className="organic-input pl-12"
                   value={formData.password}
                   onChange={e => setFormData({ ...formData, password: e.target.value })}
                 />
@@ -176,11 +177,11 @@ export default function AuthPage({ onLogin }: { onLogin: (user: User) => void })
 
             {error && (
               <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-3 bg-red-50 text-red-600 text-[10px] font-bold uppercase tracking-widest rounded-lg flex items-center gap-2 border border-red-100"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-5 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl flex items-center gap-3 border border-red-100"
               >
-                <div className="h-1.5 w-1.5 rounded-full bg-red-600" />
+                <div className="h-2 w-2 rounded-full bg-red-600 animate-pulse" />
                 {error}
               </motion.div>
             )}
@@ -188,17 +189,17 @@ export default function AuthPage({ onLogin }: { onLogin: (user: User) => void })
             <button
               disabled={loading}
               type="submit"
-              className="w-full bg-natural-sage text-white font-bold py-4 rounded-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 mt-4 shadow-md uppercase tracking-[0.2em] text-[11px]"
+              className="w-full bg-natural-sidebar text-white font-bold py-5 rounded-2xl hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-50 mt-6 shadow-xl shadow-black/10 uppercase tracking-[0.3em] text-[10px]"
             >
-              {loading ? 'Processing Transaction...' : (isLogin ? 'Establish Session' : 'Register Member')}
+              {loading ? 'Decrypting Access...' : (isLogin ? 'Establish Session' : 'Commit Registration')}
             </button>
 
             <button
               type="button"
               onClick={() => setIsLogin(!isLogin)}
-              className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-natural-sage transition-all"
+              className="w-full py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-natural-sage transition-all underline decoration-natural-line underline-offset-8"
             >
-              {isLogin ? "Generate New Membership" : "Access Existing Account"}
+              {isLogin ? "Generate New Membership Account" : "Return to Access Portal"}
             </button>
           </form>
         </div>

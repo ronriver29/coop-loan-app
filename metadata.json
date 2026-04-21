@@ -1,6 +1,6 @@
 {
-  "name": "CoopLoan Manager",
-  "description": "A professional cooperative loan management system for members and administrators.",
+  "name": "CoopTrust v2",
+  "description": "A refined, professional cooperative loan management system with role-based access, automated amortization, and ledger auditing.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

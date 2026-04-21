@@ -37,20 +37,29 @@ async function startServer() {
     console.log('✅ Connected to MongoDB');
   } catch (err) {
     console.error('❌ MongoDB connection error:', err);
-    if (!isValidUri) {
-      console.error('The provided MONGODB_URI does not start with "mongodb://" or "mongodb+srv://".');
-    }
   }
+
+  // Database readiness middleware
+  const checkDb = (req: any, res: any, next: any) => {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Database is currently unavailable. Please ensure MONGODB_URI is configured correctly.' });
+    }
+    next();
+  };
 
   // --- Auth Middleware ---
   const authenticate = (req: any, res: any, next: any) => {
     const token = req.cookies.token;
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    if (!token) {
+      console.warn('🔐 Auth Failure: No token found in cookies');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       req.user = decoded;
       next();
     } catch (err) {
+      console.warn('🔐 Auth Failure: Invalid or expired token');
       res.status(401).json({ error: 'Invalid token' });
     }
   };
@@ -63,7 +72,7 @@ async function startServer() {
   // --- API Routes ---
 
   // Auth
-  app.post('/api/auth/register', async (req, res) => {
+  app.post('/api/auth/register', checkDb, async (req, res) => {
     try {
       const { memberId, name, email, password, role } = req.body;
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -75,7 +84,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/auth/login', async (req, res) => {
+  app.post('/api/auth/login', checkDb, async (req, res) => {
     try {
       const { email, password } = req.body;
       const user = await User.findOne({ email });
@@ -83,7 +92,12 @@ async function startServer() {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
       const token = jwt.sign({ id: user._id, role: user.role, memberId: user.memberId, name: user.name }, JWT_SECRET, { expiresIn: '1d' });
-      res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+      res.cookie('token', token, { 
+        httpOnly: true, 
+        secure: true, 
+        sameSite: 'none',
+        maxAge: 24 * 60 * 60 * 1000 // 1 day
+      });
       res.json({ id: user._id, role: user.role, memberId: user.memberId, name: user.name });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -100,26 +114,58 @@ async function startServer() {
   });
 
   // Loans
-  app.post('/api/loans', authenticate, async (req: any, res) => {
+  app.post('/api/loans', authenticate, checkDb, async (req: any, res) => {
     try {
       const { loanType, principalAmount, termMonths } = req.body;
+      
+      const r = 0.12 / 12; // Monthly rate
+      const n = termMonths;
+      const P = principalAmount;
+      const M = P * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+      
+      const schedule = [];
+      let balance = P;
+      const now = new Date();
+      
+      for (let i = 1; i <= n; i++) {
+        const interest = balance * r;
+        const principal = M - interest;
+        balance -= principal;
+        
+        const dueDate = new Date(now);
+        dueDate.setMonth(now.getMonth() + i);
+        
+        schedule.push({
+          period: i,
+          dueDate,
+          principal: Math.round(principal * 100) / 100,
+          interest: Math.round(interest * 100) / 100,
+          totalPayment: Math.round(M * 100) / 100,
+          remainingBalance: Math.round(Math.max(0, balance) * 100) / 100,
+          status: 'Unpaid'
+        });
+      }
+
       const loan = new Loan({
         memberId: req.user.memberId,
         name: req.user.name,
         loanType,
         principalAmount,
-        interestRate: 0.12, // Default 12%
+        interestRate: 0.12,
         termMonths,
-        history: [{ status: 'Pending', updatedBy: req.user.name, comment: 'Application submitted' }]
+        amortizationSchedule: schedule,
+        history: [{ status: 'Pending', updatedBy: req.user.name, comment: 'Application submitted via interface' }]
       });
       await loan.save();
+      console.log(`✅ Loan applied successfully: ${loan._id} by ${req.user.memberId}`);
       res.status(201).json(loan);
     } catch (err: any) {
+      console.error('❌ Loan application error:', err);
       res.status(400).json({ error: err.message });
     }
   });
 
-  app.get('/api/loans', authenticate, async (req: any, res) => {
+  app.get('/api/loans', authenticate, checkDb, async (req: any, res) => {
     try {
       const query = req.user.role === 'Admin' ? {} : { memberId: req.user.memberId };
       const loans = await Loan.find(query).sort({ createdAt: -1 });

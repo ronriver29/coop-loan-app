@@ -20,7 +20,7 @@ export default function AdminQueueView() {
   const [filter, setFilter] = useState('Pending');
 
   useEffect(() => {
-    fetch('/api/loans')
+    fetch('/api/loans', { credentials: 'include' })
       .then(res => res.ok ? res.json() : [])
       .then(data => {
         setLoans(Array.isArray(data) ? data : []);
@@ -34,96 +34,122 @@ export default function AdminQueueView() {
 
   const filteredLoans = (Array.isArray(loans) ? loans : []).filter(l => l.status === filter || filter === 'All');
 
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const item = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 }
+  };
+
   const getStatusStyle = (status: string) => {
     switch (status) {
-      case 'Pending': return 'bg-natural-pending-bg text-natural-pending-text';
-      case 'Under Evaluation': return 'bg-natural-eval-bg text-natural-eval-text';
-      case 'Approved': return 'bg-indigo-100 text-indigo-700';
-      case 'Disbursed': return 'bg-emerald-100 text-emerald-700';
-      case 'Rejected': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'Pending': return 'bg-natural-pending-bg text-natural-pending-text border border-natural-pending-text/10';
+      case 'Under Evaluation': return 'bg-natural-eval-bg text-natural-eval-text border border-natural-eval-text/10';
+      case 'Approved': return 'bg-indigo-50 text-indigo-700 border border-indigo-100';
+      case 'Disbursed': return 'bg-emerald-50 text-emerald-700 border border-emerald-100';
+      case 'Rejected': return 'bg-red-50 text-red-700 border border-red-100';
+      default: return 'bg-slate-50 text-slate-700 border border-slate-100';
     }
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="space-y-8"
+      variants={container}
+      initial="hidden"
+      animate="show"
+      className="space-y-12"
     >
-      <div className="flex items-center justify-between">
+      <motion.div variants={item} className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-serif font-bold text-natural-ink">Loan Approval Queue</h2>
-          <p className="text-gray-500">Reviewing pending applications for the current cycle.</p>
+          <h2 className="text-3xl lg:text-4xl font-display font-black text-natural-ink tracking-tight">Underwriting Queue</h2>
+          <p className="text-slate-500 text-sm lg:text-base font-medium opacity-80 mt-1">Reviewing and authenticating active credit applications.</p>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-natural-line shadow-sm">
+      <motion.div 
+        variants={item} 
+        className="flex flex-wrap items-center gap-2 lg:gap-4 bg-white/50 p-2 rounded-[1.5rem] lg:rounded-[2rem] border border-natural-line backdrop-blur-sm w-full sm:w-fit"
+      >
         {['Pending', 'Under Evaluation', 'Approved', 'Disbursed', 'Rejected', 'All'].map((s) => (
           <button
             key={s}
             onClick={() => setFilter(s)}
-            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${
+            className={`flex-1 sm:flex-none px-4 lg:px-6 py-2.5 rounded-[1rem] lg:rounded-[1.5rem] text-[9px] lg:text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${
               filter === s 
-              ? 'bg-natural-sidebar text-white shadow-md' 
-              : 'text-gray-500 hover:bg-natural-bg'
+              ? 'bg-natural-sidebar text-white shadow-lg' 
+              : 'text-slate-400 hover:text-natural-ink hover:bg-natural-bg'
             }`}
           >
             {s}
           </button>
         ))}
-      </div>
+      </motion.div>
 
-      <section className="bg-white rounded-xl shadow-sm border border-natural-line overflow-hidden">
+      <motion.section variants={item} className="organic-card overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-gray-400 font-serif italic">Loading application queue...</div>
+          <div className="p-20 text-center">
+            <div className="h-8 w-8 border-4 border-natural-sage/20 border-t-natural-sage rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-slate-400 font-medium text-sm">Accessing the central repository...</p>
+          </div>
         ) : filteredLoans.length === 0 ? (
-          <div className="p-12 text-center text-gray-400 font-serif italic">No applications found in this category.</div>
+          <div className="p-20 text-center">
+            <div className="h-20 w-20 bg-natural-bg rounded-full flex items-center justify-center mx-auto mb-6 border border-natural-line">
+              <Users className="h-10 w-10 text-natural-line" />
+            </div>
+            <p className="text-slate-500 font-medium text-lg">No pending instruments in this category.</p>
+          </div>
         ) : (
-          <div className="overflow-x-auto text-left">
+          <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 border-b border-natural-line">
-                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Member Details</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Loan Type</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Principal</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                <tr className="bg-[#FCFCFA] border-b border-natural-line">
+                  <th className="px-6 lg:px-10 py-5 text-micro font-medium normal-case text-slate-500">Obligor Credentials</th>
+                  <th className="px-6 lg:px-10 py-5 text-micro font-medium normal-case text-slate-500">Product Class</th>
+                  <th className="px-6 lg:px-10 py-5 text-micro font-medium normal-case text-slate-500">Capital Value</th>
+                  <th className="px-6 lg:px-10 py-5 text-micro font-medium normal-case text-slate-500">Lifecycle</th>
+                  <th className="px-6 lg:px-10 py-5 text-micro font-medium normal-case text-slate-500 text-right">Adjudication</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-natural-line">
                 {filteredLoans.map((loan) => (
-                  <tr key={loan._id} className="hover:bg-natural-bg/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 bg-natural-bg text-natural-ink rounded flex items-center justify-center font-bold text-xs uppercase tracking-tighter border border-natural-line">
+                  <tr key={loan._id} className="hover:bg-natural-bg/40 transition-colors group">
+                    <td className="px-6 lg:px-10 py-6">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 lg:h-11 lg:w-11 bg-natural-sidebar text-slate-300 rounded-2xl flex items-center justify-center font-bold text-[10px] lg:text-xs uppercase tracking-tighter border border-white/5 shadow-md shrink-0">
                           {loan.name.split(' ').map(n => n[0]).join('')}
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-natural-ink">{loan.name}</p>
-                          <p className="text-[10px] text-gray-400 font-mono leading-none mt-1 uppercase tracking-widest">ID: {loan.memberId}</p>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-natural-ink truncate max-w-[120px] sm:max-w-none">{loan.name}</p>
+                          <p className="text-[9px] lg:text-[10px] text-slate-400 font-mono leading-none mt-1.5 uppercase tracking-widest">{loan.memberId}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 lg:px-10 py-6 whitespace-nowrap">
                       <span className="text-sm font-medium text-natural-ink">{loan.loanType}</span>
                     </td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-bold text-natural-ink">₱{loan.principalAmount.toLocaleString()}</p>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none mt-1">{loan.termMonths} Months</p>
+                    <td className="px-6 lg:px-10 py-6 whitespace-nowrap">
+                      <p className="text-base lg:text-lg font-black text-natural-ink font-display">₱{loan.principalAmount.toLocaleString()}</p>
+                      <p className="text-[9px] lg:text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none mt-1.5">{loan.termMonths} Month Horizon</p>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-[4px] text-[10px] font-black uppercase tracking-widest ${getStatusStyle(loan.status)}`}>
+                    <td className="px-6 lg:px-10 py-6">
+                      <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[9px] lg:text-[10px] font-black uppercase tracking-widest ${getStatusStyle(loan.status)} whitespace-nowrap`}>
                         {loan.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 lg:px-10 py-6 text-right">
                       <Link
                         to={`/loan/${loan._id}`}
-                        className="bg-natural-sage text-white text-[10px] px-4 py-2 rounded font-bold uppercase tracking-widest hover:opacity-90 inline-block transition-all"
+                        className="bg-natural-bg border border-natural-line text-natural-ink text-[9px] lg:text-[10px] px-4 lg:px-6 py-3 rounded-xl font-bold uppercase tracking-widest hover:bg-natural-sidebar hover:text-white hover:border-natural-sidebar transition-all shadow-sm active:scale-95 inline-block whitespace-nowrap"
                       >
-                        Review Application
+                        Execute Review
                       </Link>
                     </td>
                   </tr>
@@ -132,7 +158,7 @@ export default function AdminQueueView() {
             </table>
           </div>
         )}
-      </section>
+      </motion.section>
     </motion.div>
   );
 }

@@ -1,22 +1,37 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Lora:ital,wght@0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Lora", Georgia, serif;
+  --font-display: "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
 
-  --color-natural-bg: #F8F7F2;
-  --color-natural-ink: #2D3327;
-  --color-natural-sidebar: #2C3327;
-  --color-natural-sage: #8A9A5B;
-  --color-natural-sage-600: #7A8A4B;
-  --color-natural-line: #E5E4DE;
-  --color-natural-pending-bg: #FEF3C7;
+  --color-natural-bg: #F8FAFC;
+  --color-natural-ink: #0F172A;
+  --color-natural-sidebar: #1E293B;
+  --color-natural-sage: #6366F1;
+  --color-natural-sage-600: #4F46E5;
+  --color-natural-line: #E2E8F0;
+  --color-natural-pending-bg: #FFFBEB;
   --color-natural-pending-text: #92400E;
-  --color-natural-eval-bg: #DBEAFE;
+  --color-natural-eval-bg: #EFF6FF;
   --color-natural-eval-text: #1E40AF;
+
+  --shadow-organic: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+
+@utility organic-card {
+  @apply bg-white rounded-3xl border border-natural-line shadow-organic transition-all duration-300;
+}
+
+@utility organic-input {
+  @apply bg-[#F1F5F9] border border-transparent rounded-xl px-6 py-4 focus:ring-2 focus:ring-natural-sage/20 focus:bg-white focus:border-natural-sage/30 transition-all duration-300 outline-none;
+}
+
+@utility text-micro {
+  @apply text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400;
 }
 
 body {
-  @apply font-sans bg-natural-bg text-natural-ink;
+  @apply font-sans bg-natural-bg text-natural-ink antialiased selection:bg-natural-sage/20;
 }

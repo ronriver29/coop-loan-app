@@ -12,7 +12,8 @@ import {
   Info, 
   Printer, 
   Send,
-  AlertCircle
+  AlertCircle,
+  ShieldCheck
 } from 'lucide-react';
 import { User, Loan } from '../types';
 
@@ -28,8 +29,8 @@ export default function LoanDetailView() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetch('/api/auth/me').then(res => res.ok ? res.json() : null),
-      fetch(`/api/loans`).then(res => res.ok ? res.json() : [])
+      fetch('/api/auth/me', { credentials: 'include' }).then(res => res.ok ? res.json() : null),
+      fetch(`/api/loans`, { credentials: 'include' }).then(res => res.ok ? res.json() : [])
     ]).then(([userData, loansData]) => {
       setUser(userData);
       const foundLoan = Array.isArray(loansData) ? loansData.find((l: any) => l._id === id) : null;
@@ -46,6 +47,7 @@ export default function LoanDetailView() {
       const res = await fetch(`/api/loans/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ status, comment: statusComment }),
       });
       if (res.ok) {
@@ -60,7 +62,29 @@ export default function LoanDetailView() {
     }
   };
 
-  if (loading || !loan) return <div className="p-12 text-center text-gray-400">Loading loan details...</div>;
+  if (loading || !loan) return <div className="p-12 text-center text-slate-400">Loading loan details...</div>;
+
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const item = {
+    hidden: { opacity: 0, scale: 0.98 },
+    show: { opacity: 1, scale: 1 }
+  };
+
+  if (loading || !loan) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 min-h-[400px]">
+        <div className="h-10 w-10 border-4 border-natural-sage/20 border-t-natural-sage rounded-full animate-spin mb-6" />
+        <p className="text-slate-400 font-medium">Synchronizing document with central archive...</p>
+      </div>
+    );
+  }
 
   const isAdmin = user?.role === 'Admin';
   const nextStatusOptions = {
@@ -73,199 +97,227 @@ export default function LoanDetailView() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="space-y-8 pb-20"
+      variants={container}
+      initial="hidden"
+      animate="show"
+      className="space-y-12 pb-32"
     >
-      <button 
+      <motion.button 
+        variants={item}
         onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-gray-500 hover:text-indigo-600 transition-colors font-bold text-sm uppercase tracking-widest"
+        className="flex items-center gap-3 text-slate-400 hover:text-natural-sage transition-all text-micro group"
       >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Dashboard
-      </button>
+        <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+        Return to Archives
+      </motion.button>
 
-      <div className="grid lg:grid-cols-[1fr_350px] gap-8">
-        <div className="space-y-8">
-          {/* Main Info Card */}
-          <div className="bg-white rounded-xl border border-natural-line shadow-sm p-10">
-            <div className="flex justify-between items-start mb-12">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 lg:gap-12 items-start">
+        <div className="space-y-8 lg:space-y-12">
+          {/* Main Financial Certificate */}
+          <motion.div variants={item} className="organic-card p-6 sm:p-8 lg:p-12 relative overflow-hidden">
+             {/* Decorative watermark */}
+            <div className="absolute -top-10 -right-10 opacity-[0.03] pointer-events-none hidden lg:block">
+              <FileText size={400} />
+            </div>
+
+            <div className="flex flex-col md:flex-row justify-between items-start gap-8 lg:gap-10 mb-12 lg:mb-16 relative z-10">
               <div>
-                <span className="inline-flex items-center px-2 py-1 rounded-[4px] text-[10px] font-black uppercase tracking-widest bg-natural-bg text-natural-sage mb-4 border border-natural-line">
-                  {loan.loanType} Product
-                </span>
-                <h2 className="text-5xl font-black text-natural-ink tracking-tight italic font-serif">
-                  ₱{loan.principalAmount.toLocaleString()}
+                <div className="flex items-center gap-3 mb-4 lg:mb-6">
+                  <span className="h-2 w-2 rounded-full bg-natural-sage animate-pulse" />
+                  <span className="text-micro text-natural-sage">OFFICIAL DISBURSEMENT RECORD</span>
+                </div>
+                <p className="text-micro opacity-40 mb-2">Authenticated Instrument</p>
+                <h2 className="text-4xl sm:text-5xl lg:text-6xl font-display font-black text-natural-ink tracking-tight">
+                  <span className="text-2xl sm:text-3xl not-italic font-sans mr-1">₱</span>
+                  {loan.principalAmount.toLocaleString()}
                 </h2>
-                <p className="text-gray-400 font-mono text-xs mt-2 uppercase tracking-widest">Ref: {id?.slice(-8).toUpperCase()}</p>
+                <div className="mt-6 lg:mt-8 flex flex-wrap items-center gap-4 lg:gap-6">
+                  <div>
+                    <p className="text-micro opacity-40 mb-1">Product Class</p>
+                    <p className="text-xs lg:text-sm font-bold uppercase tracking-widest text-natural-ink">{loan.loanType}</p>
+                  </div>
+                  <div className="h-8 w-px bg-natural-line hidden sm:block" />
+                  <div>
+                    <p className="text-micro opacity-40 mb-1">Serial Hash</p>
+                    <p className="text-xs lg:text-sm font-mono text-natural-ink">#{id?.slice(-8).toUpperCase()}</p>
+                  </div>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-2">Current Lifecycle</p>
-                <span className={`inline-flex items-center h-8 px-5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-natural-sidebar text-white shadow-md`}>
+
+              <div className="bg-natural-bg p-6 lg:p-8 rounded-2xl border border-natural-line text-center w-full md:min-w-[200px] md:w-auto">
+                <p className="text-micro opacity-40 mb-3 lg:mb-4">Lifecycle Status</p>
+                <span className={`block w-full py-2.5 rounded-xl text-[9px] lg:text-[10px] font-black uppercase tracking-[0.2em] shadow-sm ${
+                  loan.status === 'Disbursed' ? 'bg-natural-sage text-white' : 'bg-white text-natural-ink border border-natural-line'
+                }`}>
                   {loan.status}
                 </span>
+                <p className="text-[9px] lg:text-[10px] text-slate-400 font-medium mt-3 lg:mt-4 uppercase tracking-widest">Verified {new Date(loan.createdAt).toLocaleDateString()}</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-10 pt-10 border-t border-natural-line">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-12 pt-8 lg:pt-12 border-t border-natural-line relative z-10">
               <div>
-                <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest mb-2">Annual Rate</p>
-                <p className="text-xl font-bold text-natural-ink">{(loan.interestRate * 100).toFixed(0)}% P.A.</p>
+                <p className="text-micro opacity-40 mb-1 lg:mb-2">Cost of Funds</p>
+                <p className="text-lg lg:text-xl font-bold text-natural-ink">{(loan.interestRate * 100).toFixed(1)}% <span className="text-xs text-slate-400 font-medium uppercase tracking-[0.1em] font-sans">P.A.</span></p>
               </div>
               <div>
-                <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest mb-2">Repayment Term</p>
-                <p className="text-xl font-bold text-natural-ink">{loan.termMonths} Months</p>
+                <p className="text-micro opacity-40 mb-1 lg:mb-2">Duration</p>
+                <p className="text-lg lg:text-xl font-bold text-natural-ink">{loan.termMonths} <span className="text-xs text-slate-400 font-medium uppercase tracking-[0.1em] font-sans">Months</span></p>
               </div>
               <div>
-                <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest mb-2">Member Reference</p>
-                <p className="text-xl font-bold text-natural-ink">{loan.memberId}</p>
+                <p className="text-micro opacity-40 mb-1 lg:mb-2">Obligor ID</p>
+                <p className="text-lg lg:text-xl font-bold text-natural-ink">{loan.memberId}</p>
               </div>
               <div>
-                <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest mb-2">Obligor</p>
-                <p className="text-xl font-bold text-natural-ink">{loan.name}</p>
+                <p className="text-micro opacity-40 mb-1 lg:mb-2">Account Name</p>
+                <p className="text-lg lg:text-xl font-bold text-natural-ink truncate">{loan.name}</p>
               </div>
             </div>
-          </div>
+          </motion.div>
 
-          {/* Amortization Table */}
+          {/* Amortization Schedule */}
           {loan.status === 'Disbursed' && (
-            <div className="bg-white rounded-xl border border-natural-line shadow-sm overflow-hidden">
-              <div className="p-8 border-b border-natural-line flex items-center justify-between bg-gray-50">
-                <h3 className="font-bold text-natural-ink flex items-center gap-2 text-sm uppercase tracking-widest">
+            <motion.div variants={item} className="organic-card overflow-hidden">
+              <div className="px-10 py-8 border-b border-natural-line flex items-center justify-between bg-[#FCFCFA]">
+                <h3 className="font-bold text-natural-ink flex items-center gap-3 text-sm uppercase tracking-[0.2em]">
                   <Calendar className="h-5 w-5 text-natural-sage" />
                   Repayment Matrix
                 </h3>
-                <button className="flex items-center gap-2 text-[10px] font-bold text-natural-sage hover:underline uppercase tracking-widest">
+                <button className="flex items-center gap-2 text-micro text-natural-sage hover:underline">
                   <Printer className="h-4 w-4" />
-                  Generate Ledger PDF
+                  Export Ledger
                 </button>
               </div>
               
               <div className="overflow-x-auto text-left">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-gray-50 border-b border-natural-line text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                      <th className="px-8 py-4">#</th>
-                      <th className="px-8 py-4">Due Date</th>
-                      <th className="px-8 py-4">Principal</th>
-                      <th className="px-8 py-4">Interest</th>
-                      <th className="px-8 py-4">Total Due</th>
-                      <th className="px-8 py-4">Status</th>
+                    <tr className="bg-[#FCFCFA] border-b border-natural-line text-micro font-medium normal-case text-slate-500">
+                      <th className="px-10 py-5">Sequence</th>
+                      <th className="px-10 py-5">Maturity Date</th>
+                      <th className="px-10 py-5">Repayment Principal</th>
+                      <th className="px-10 py-5">Service Fee</th>
+                      <th className="px-10 py-5">Total Obligation</th>
+                      <th className="px-10 py-5">Settlement</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-natural-line">
                     {loan.amortizationSchedule.map((row) => (
-                      <tr key={row.period} className="hover:bg-natural-bg/50 transition-colors">
-                        <td className="px-8 py-4 text-xs font-bold text-gray-400">{row.period.toString().padStart(2, '0')}</td>
-                        <td className="px-8 py-4 text-xs font-medium text-natural-ink">
+                      <tr key={row.period} className="hover:bg-natural-bg/40 transition-colors group">
+                        <td className="px-10 py-6 text-xs font-bold text-slate-300 font-mono">#{row.period.toString().padStart(2, '0')}</td>
+                        <td className="px-10 py-6 text-sm font-medium text-natural-ink">
                           {new Date(row.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                         </td>
-                        <td className="px-8 py-4 text-xs font-bold text-natural-ink">₱{row.principal.toLocaleString()}</td>
-                        <td className="px-8 py-4 text-xs font-bold text-gray-400">₱{row.interest.toLocaleString()}</td>
-                        <td className="px-8 py-4 text-xs font-black text-natural-sage">₱{row.totalPayment.toLocaleString()}</td>
-                        <td className="px-8 py-4 text-xs font-bold text-gray-300 uppercase tracking-widest">{row.status}</td>
+                        <td className="px-10 py-6 text-sm font-bold text-natural-ink font-display">₱{row.principal.toLocaleString()}</td>
+                        <td className="px-10 py-6 text-xs text-slate-400 font-mono tracking-tighter">₱{row.interest.toLocaleString()}</td>
+                        <td className="px-10 py-6 text-base font-black text-natural-sage font-display underline decoration-natural-sage/20">₱{row.totalPayment.toLocaleString()}</td>
+                        <td className="px-10 py-6">
+                           <span className={`text-[10px] font-bold uppercase tracking-widest ${row.status === 'Paid' ? 'text-emerald-600' : 'text-slate-300'}`}>
+                             {row.status}
+                           </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </motion.div>
           )}
 
-          {/* History / Audit Log */}
-          <div className="bg-white rounded-xl border border-natural-line shadow-sm p-10">
-            <h3 className="font-bold text-natural-ink flex items-center gap-2 mb-10 text-sm uppercase tracking-widest">
+          {/* Audit Log / History */}
+          <motion.div variants={item} className="organic-card p-6 sm:p-8 lg:p-12">
+            <h3 className="font-bold text-natural-ink flex items-center gap-3 mb-8 lg:mb-12 text-xs lg:text-sm uppercase tracking-[0.2em]">
               <History className="h-5 w-5 text-natural-sage" />
-              Compliance Audit Trail
+              Compliance History
             </h3>
-            <div className="space-y-8">
+            <div className="space-y-8 lg:space-y-12">
               {loan.history.map((entry, idx) => (
-                <div key={idx} className="flex gap-6">
+                <div key={idx} className="flex gap-4 sm:gap-8 group">
                   <div className="flex flex-col items-center">
-                    <div className={`h-6 w-6 rounded flex items-center justify-center shrink-0 border ${idx === 0 ? 'bg-natural-sage border-natural-sage text-white' : 'bg-white border-natural-line text-gray-300'}`}>
-                      {entry.status === 'Disbursed' ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                    </div>
-                    {idx < loan.history.length - 1 && <div className="w-px h-full bg-natural-line my-2" />}
+                    <div className={`h-1.5 w-1.5 rounded-full ring-8 ring-natural-bg transition-all ${idx === 0 ? 'bg-natural-sage ring-natural-sage/10 scale-125' : 'bg-slate-300'}`} />
+                    {idx < loan.history.length - 1 && <div className="w-px h-full bg-natural-line my-4 flex-1" />}
                   </div>
-                  <div className="flex-1 pb-6">
-                    <div className="flex justify-between items-start mb-2">
-                      <p className="font-bold text-sm text-natural-ink uppercase tracking-widest">{entry.status}</p>
-                      <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest font-mono">{new Date(entry.timestamp).toLocaleString()}</p>
+                  <div className="flex-1 pb-2">
+                    <div className="flex justify-between items-center mb-3">
+                      <p className={`font-bold text-xs uppercase tracking-widest ${idx === 0 ? 'text-natural-ink' : 'text-slate-400'}`}>{entry.status}</p>
+                      <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest font-mono">{new Date(entry.timestamp).toLocaleString()}</p>
                     </div>
-                    <p className="text-sm text-gray-500 font-serif italic leading-relaxed">"{entry.comment || 'No processing notes'}"</p>
-                    <p className="text-[10px] font-bold text-natural-sage uppercase tracking-widest mt-3">Verified by {entry.updatedBy}</p>
+                    <div className="bg-natural-bg p-5 rounded-2xl border border-natural-line group-hover:bg-white transition-colors">
+                      <p className="text-sm text-slate-600 font-medium leading-relaxed">"{entry.comment || 'Authentication required no narrative.'}"</p>
+                    </div>
+                    <p className="text-[10px] font-bold text-natural-sage/60 uppercase tracking-[0.2em] mt-4">Authorized by {entry.updatedBy}</p>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </motion.div>
         </div>
 
-        {/* Sidebar: Admin Actions */}
-        <aside className="space-y-6">
+        {/* Sidebar Actions */}
+        <aside className="space-y-8 lg:sticky lg:top-24">
           {isAdmin && (
-            <div className="bg-white rounded-xl border border-natural-line shadow-sm p-8 sticky top-24">
-              <h3 className="text-xs font-black text-natural-ink uppercase tracking-[0.2em] mb-8 flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-natural-sage" />
-                Review Console
+            <motion.div variants={item} className="organic-card p-6 sm:p-10 bg-natural-sidebar text-white shadow-2xl shadow-black/20 border-none">
+              <h3 className="text-micro text-white/30 mb-8 lg:mb-10 flex items-center gap-3">
+                <ShieldCheck className="h-5 w-5 text-natural-sage" />
+                Administrative Console
               </h3>
               
-              <div className="space-y-8">
+              <div className="space-y-8 lg:space-y-10">
                 <div className="text-left">
-                  <label className="text-[10px] font-bold text-gray-300 uppercase tracking-widest block mb-3">Internal Decision Notes</label>
+                  <label className="text-micro text-white/40 block mb-4">Observation Narrative</label>
                   <textarea
-                    className="w-full p-4 bg-natural-bg border border-natural-line rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-natural-sage focus:bg-white transition-all h-32 resize-none font-serif italic"
-                    placeholder="Enter observations..."
+                    className="w-full p-4 lg:p-6 bg-white/5 border border-white/10 rounded-2xl text-xs lg:text-sm focus:outline-none focus:ring-1 focus:ring-natural-sage transition-all h-32 resize-none font-medium text-white placeholder:text-white/20"
+                    placeholder="Document transaction notes..."
                     value={statusComment}
                     onChange={(e) => setStatusComment(e.target.value)}
                   />
                 </div>
 
                 <div className="space-y-4">
-                  <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest text-left">Transition Commands</p>
+                  <p className="text-micro text-white/40 mb-4">Decision Tree</p>
                   {(nextStatusOptions[loan.status as keyof typeof nextStatusOptions] || []).map((s) => (
                     <button
                       key={s}
                       disabled={updating}
                       onClick={() => handleStatusUpdate(s)}
-                      className={`w-full py-4 rounded-lg font-bold text-[11px] uppercase tracking-widest transition-all active:scale-[0.98] shadow-sm ${
+                      className={`w-full py-5 rounded-2xl font-bold text-[10px] uppercase tracking-[0.3em] transition-all active:scale-[0.98] shadow-md ${
                         s === 'Rejected' 
-                        ? 'text-red-600 border border-red-50 hover:bg-red-50' 
-                        : 'bg-natural-sage text-white hover:opacity-90'
+                        ? 'bg-red-500/10 text-red-100 border border-red-500/20 hover:bg-red-500/20' 
+                        : 'bg-natural-sage text-white hover:opacity-90 shadow-lg shadow-natural-sage/20'
                       }`}
                     >
-                      {updating ? 'Executing...' : `Command: ${s}`}
+                      {updating ? 'Processing...' : `Command: ${s}`}
                     </button>
                   ))}
                   {(nextStatusOptions[loan.status as keyof typeof nextStatusOptions] || []).length === 0 && (
-                    <p className="text-[10px] text-center text-gray-400 py-6 italic border-2 border-dashed border-natural-line rounded-xl font-serif">
-                      Record finalized in ledger.
-                    </p>
+                    <div className="text-center py-10 px-6 border-2 border-dashed border-white/10 rounded-2xl font-medium text-white/20 text-xs uppercase tracking-widest">
+                      Record fully executed and locked in history.
+                    </div>
                   )}
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
 
-          <div className="bg-natural-bg border border-natural-line rounded-xl p-8">
-            <h4 className="font-bold text-natural-ink text-xs uppercase tracking-widest mb-4 flex items-center gap-2 leading-none">
+          <motion.div variants={item} className="organic-card p-8 bg-slate-100 border-none">
+            <h4 className="text-micro text-natural-ink mb-6 flex items-center gap-3">
               <Info className="h-4 w-4 text-natural-sage" />
-              Policy Bulletin
+              Information Notice
             </h4>
-            <p className="text-[10px] text-gray-500 leading-relaxed italic font-serif mb-6">
-              All disbursements verified against RA 10173 and CDA operational standards.
+            <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+               All fund movements are journaled in real-time. Repayment non-compliance triggers automatic levy procedures according to Article 12, Section 4.
             </p>
-            <div className="space-y-3 pt-6 border-t border-natural-line">
-              <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                <span>Verification</span>
-                <span className="text-natural-sage">L2 Secured</span>
-              </div>
-              <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                <span>Authority</span>
-                <span className="text-natural-sage">CoopTrust v2</span>
-              </div>
+            <div className="mt-8 pt-8 border-t border-natural-line space-y-4">
+               <div className="flex justify-between items-center text-micro">
+                 <span className="opacity-40">System Env</span>
+                 <span className="text-natural-sage">Mainnet-Secure</span>
+               </div>
+               <div className="flex justify-between items-center text-micro">
+                 <span className="opacity-40">Privacy Tier</span>
+                 <span className="text-natural-sage">RA-10173</span>
+               </div>
             </div>
-          </div>
+          </motion.div>
         </aside>
       </div>
     </motion.div>
