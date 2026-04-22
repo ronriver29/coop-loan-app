@@ -1,6 +1,7 @@
-export type UserRole = 'Member' | 'Admin';
+export type UserRole = 'Member' | 'Admin' | 'Regular Member' | 'Associate Member' | 'System Administrator' | 'Evaluator' | 'Reviewer' | 'Approver' | 'Disbursement';
 
 export interface User {
+  _id?: string;
   id: string;
   memberId: string;
   name: string;
@@ -39,7 +40,7 @@ export interface Loan {
   principalAmount: number;
   interestRate: number;
   termMonths: number;
-  status: 'Pending' | 'Under Evaluation' | 'Approved' | 'Disbursed' | 'Rejected';
+  status: 'Pending' | 'Under Evaluation' | 'Reviewed' | 'Approved' | 'Disbursed' | 'Rejected';
   createdAt: string;
   approvedAt?: string;
   disbursedAt?: string;

@@ -41,6 +41,7 @@ export default function DashboardView({ user }: { user: User }) {
     switch (status) {
       case 'Pending': return 'bg-natural-pending-bg text-natural-pending-text';
       case 'Under Evaluation': return 'bg-natural-eval-bg text-natural-eval-text';
+      case 'Reviewed': return 'bg-purple-50 text-purple-700 border border-purple-100';
       case 'Approved': return 'bg-indigo-50 text-indigo-700 border border-indigo-100';
       case 'Disbursed': return 'bg-emerald-50 text-emerald-700 border border-emerald-100';
       case 'Rejected': return 'bg-red-50 text-red-700 border border-red-100';
@@ -75,7 +76,7 @@ export default function DashboardView({ user }: { user: User }) {
           <h2 className="text-3xl lg:text-4xl font-display font-black text-natural-ink tracking-tight">Bonjour, {user.name.split(' ')[0]}</h2>
           <p className="text-slate-500 text-sm lg:text-base font-medium opacity-80 mt-1">Your financial stewardship at a glance.</p>
         </div>
-        {user.role === 'Member' && (
+        {(user.role === 'Member' || user.role === 'Regular Member' || user.role === 'Associate Member') && (
           <Link
             to="/apply"
             className="flex items-center justify-center gap-2 bg-natural-sage text-white px-6 lg:px-8 py-4 rounded-2xl font-bold hover:bg-natural-sage-600 transition-all shadow-lg shadow-natural-sage/20 active:scale-95 w-full sm:w-auto text-sm"

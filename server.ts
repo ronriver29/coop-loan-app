@@ -234,6 +234,30 @@ async function startServer() {
     }
   });
 
+  app.patch('/api/users/:id', authenticate, isAdmin, checkDb, async (req: any, res: any) => {
+    try {
+      const { name, email, contactNumber, region, province, city, barangay, streetAddress, role, memberId } = req.body;
+      const user = await User.findById(req.params.id);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      if (name) user.name = name;
+      if (email) user.email = email;
+      if (memberId) user.memberId = memberId;
+      if (role) user.role = role;
+      if (contactNumber !== undefined) user.contactNumber = contactNumber;
+      if (region !== undefined) user.region = region;
+      if (province !== undefined) user.province = province;
+      if (city !== undefined) user.city = city;
+      if (barangay !== undefined) user.barangay = barangay;
+      if (streetAddress !== undefined) user.streetAddress = streetAddress;
+
+      await user.save();
+      res.json(user);
+    } catch (err: any) {
+      handleMongoError(err, res);
+    }
+  });
+
   app.patch('/api/auth/profile', authenticate, checkDb, async (req: any, res) => {
     try {
       const { name, email, password, contactNumber, region, province, city, barangay, streetAddress } = req.body;
