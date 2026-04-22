@@ -11,11 +11,35 @@ const UserSchema = new mongoose.Schema({
   barangay: { type: String, default: '' },
   streetAddress: { type: String, default: '' },
   password: { type: String, required: true },
-  role: { type: String, enum: ['Member', 'Admin'], default: 'Member' },
+  role: { 
+    type: String, 
+    enum: [
+      'Regular Member', 
+      'Associate Member', 
+      'System Administrator', 
+      'Evaluator', 
+      'Reviewer', 
+      'Approver', 
+      'Disbursement'
+    ], 
+    default: 'Regular Member' 
+  },
   createdAt: { type: Date, default: Date.now },
 });
 
 export const User = mongoose.model('User', UserSchema);
+
+const LoanTypeSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true },
+  icon: { type: String, default: 'Info' },
+  description: { type: String, default: '' },
+  interestRate: { type: Number, default: 0.12 }, // Annual rate
+  allowedTerms: { type: [Number], default: [6, 12, 18, 24] }, // Months
+  isActive: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now },
+});
+
+export const LoanType = mongoose.model('LoanType', LoanTypeSchema);
 
 const AmortizationSchema = new mongoose.Schema({
   period: Number,
@@ -30,13 +54,20 @@ const AmortizationSchema = new mongoose.Schema({
 const LoanSchema = new mongoose.Schema({
   memberId: { type: String, required: true },
   name: { type: String, required: true }, // Denormalized for scannability
-  loanType: { type: String, enum: ['Emergency', 'Providential', 'Educational', 'Business'], required: true },
+  loanType: { type: String, required: true },
   principalAmount: { type: Number, required: true },
   interestRate: { type: Number, required: true }, // Annual rate (e.g., 0.12 for 12%)
   termMonths: { type: Number, required: true },
   status: { 
     type: String, 
-    enum: ['Pending', 'Under Evaluation', 'Approved', 'Disbursed', 'Rejected'], 
+    enum: [
+      'Pending', 
+      'Under Evaluation', 
+      'Reviewed', 
+      'Approved', 
+      'Disbursed', 
+      'Rejected'
+    ], 
     default: 'Pending' 
   },
   createdAt: { type: Date, default: Date.now },

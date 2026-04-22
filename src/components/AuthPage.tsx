@@ -55,20 +55,20 @@ export default function AuthPage({ onLogin }: { onLogin: (user: User) => void })
               <div className="h-10 w-10 bg-natural-sage rounded flex items-center justify-center">
                 <Briefcase className="h-6 w-6 text-white" />
               </div>
-              <span className="text-2xl font-bold tracking-tight">CoopTrust v2</span>
+              <span className="text-2xl font-bold tracking-tight">CoopLink</span>
             </div>
 
             <h1 className="text-2xl lg:text-4xl font-display font-black leading-tight mb-4 lg:mb-8">
               Empowering Members Through Responsible Financial Solutions.
             </h1>
             <p className="text-natural-bg/60 text-sm lg:text-lg font-sans opacity-80">
-              A modern cooperative management platform designed for sustainability and mutual growth.
+              A modern cooperative loan management platform designed for sustainability and mutual growth.
             </p>
           </div>
 
           <div className="relative z-10 grid grid-cols-3 gap-4 lg:gap-6 pt-8 lg:pt-12 border-t border-white/10 uppercase tracking-widest text-[8px] lg:text-[10px] font-bold">
             <div>
-              <p className="text-xl lg:text-2xl font-black font-display text-white">12%</p>
+              <p className="text-xl lg:text-2xl font-black font-display text-white">LOW</p>
               <p className="text-white/40">Fixed APR</p>
             </div>
             <div>

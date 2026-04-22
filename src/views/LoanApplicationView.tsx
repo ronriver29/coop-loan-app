@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { 
@@ -12,26 +12,73 @@ import {
   GraduationCap,
   Store,
   AlertCircle,
-  ArrowRight
+  ArrowRight,
+  Home,
+  Heart,
+  Bus,
+  ShoppingBag,
+  Briefcase,
+  Wrench
 } from 'lucide-react';
 import { User } from '../types';
+
+const iconMap: Record<string, any> = {
+  Zap,
+  ShieldCheck,
+  GraduationCap,
+  Store,
+  Home,
+  Heart,
+  Bus,
+  ShoppingBag,
+  Briefcase,
+  Wrench,
+  Info
+};
 
 export default function LoanApplicationView({ user }: { user: User }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [typesLoading, setTypesLoading] = useState(true);
   const [error, setError] = useState('');
+  const [loanTypes, setLoanTypes] = useState<any[]>([]);
   const [formData, setFormData] = useState({
-    loanType: 'Providential',
+    loanType: '',
     principalAmount: 50000,
     termMonths: 12,
   });
 
-  const loanTypes = [
-    { id: 'Emergency', icon: Zap, desc: 'Medical emergencies, urgent repairs' },
-    { id: 'Providential', icon: ShieldCheck, desc: 'Household needs, appliances' },
-    { id: 'Educational', icon: GraduationCap, desc: 'Tuition fees, school supplies' },
-    { id: 'Business', icon: Store, desc: 'Small business capital, inventory' },
-  ];
+  const selectedType = loanTypes.find(t => t.name === formData.loanType);
+
+  useEffect(() => {
+    fetch('/api/loan-types')
+      .then(res => res.json())
+      .then(data => {
+        const activeTypes = data.filter((t: any) => t.isActive);
+        setLoanTypes(activeTypes);
+        if (activeTypes.length > 0) {
+          setFormData(prev => ({ 
+            ...prev, 
+            loanType: activeTypes[0].name,
+            termMonths: activeTypes[0].allowedTerms?.[0] || 12
+          }));
+        }
+        setTypesLoading(false);
+      })
+      .catch(() => {
+        setError('Failed to fetch loan programs.');
+        setTypesLoading(false);
+      });
+  }, []);
+
+  // Update default term if selected type changes and current term is invalid
+  useEffect(() => {
+    if (selectedType && selectedType.allowedTerms) {
+      if (!selectedType.allowedTerms.includes(formData.termMonths)) {
+        setFormData(prev => ({ ...prev, termMonths: selectedType.allowedTerms[0] }));
+      }
+    }
+  }, [formData.loanType, selectedType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +86,25 @@ export default function LoanApplicationView({ user }: { user: User }) {
     
     setLoading(true);
     setError('');
+
+    // Client-side validation
+    if (!formData.loanType) {
+      setError('Please select a loan program.');
+      setLoading(false);
+      return;
+    }
+
+    if (formData.principalAmount < 1000 || formData.principalAmount > 500000) {
+      setError('Principal amount must be between ₱1,000 and ₱500,000.');
+      setLoading(false);
+      return;
+    }
+
+    if (selectedType && selectedType.allowedTerms && !selectedType.allowedTerms.includes(formData.termMonths)) {
+      setError('Selected term is not valid for this loan program.');
+      setLoading(false);
+      return;
+    }
     
     try {
       console.log('🚀 Initiating loan application submission:', formData);
@@ -70,7 +136,8 @@ export default function LoanApplicationView({ user }: { user: User }) {
   };
 
   // Monthly breakdown for preview
-  const r = 0.12 / 12;
+  const annualRate = selectedType?.interestRate || 0.12;
+  const r = annualRate / 12;
   const n = formData.termMonths;
   const P = formData.principalAmount;
   const M = P * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
@@ -117,22 +184,27 @@ export default function LoanApplicationView({ user }: { user: User }) {
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5">
-              {loanTypes.map((type) => (
-                <button
-                  key={type.id}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, loanType: type.id })}
-                  className={`flex flex-col items-start p-6 rounded-2xl text-left transition-all group ${
-                    formData.loanType === type.id 
-                    ? 'bg-natural-sidebar text-white shadow-lg' 
-                    : 'bg-natural-bg text-natural-ink hover:bg-natural-line/50 border border-natural-line'
-                  }`}
-                >
-                  <type.icon className={`h-6 w-6 mb-4 transition-colors ${formData.loanType === type.id ? 'text-white' : 'text-slate-400 group-hover:text-natural-sage'}`} />
-                  <p className={`font-bold text-sm uppercase tracking-widest ${formData.loanType === type.id ? 'text-white' : 'text-natural-ink'}`}>{type.id}</p>
-                  <p className={`text-[10px] leading-relaxed mt-2 font-medium opacity-60 ${formData.loanType === type.id ? 'text-white' : 'text-slate-500'}`}>{type.desc}</p>
-                </button>
-              ))}
+              {typesLoading ? (
+                <div className="col-span-full py-10 text-center animate-pulse text-micro">Syncing catalog...</div>
+              ) : loanTypes.map((type) => {
+                const Icon = iconMap[type.icon] || Info;
+                return (
+                  <button
+                    key={type._id}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, loanType: type.name })}
+                    className={`flex flex-col items-start p-6 rounded-2xl text-left transition-all group ${
+                      formData.loanType === type.name 
+                      ? 'bg-natural-sidebar text-white shadow-lg' 
+                      : 'bg-natural-bg text-natural-ink hover:bg-natural-line/50 border border-natural-line'
+                    }`}
+                  >
+                    <Icon className={`h-6 w-6 mb-4 transition-colors ${formData.loanType === type.name ? 'text-white' : 'text-slate-400 group-hover:text-natural-sage'}`} />
+                    <p className={`font-bold text-sm uppercase tracking-widest ${formData.loanType === type.name ? 'text-white' : 'text-natural-ink'}`}>{type.name}</p>
+                    <p className={`text-[10px] leading-relaxed mt-2 font-medium opacity-60 ${formData.loanType === type.name ? 'text-white' : 'text-slate-500'}`}>{type.description}</p>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -161,7 +233,7 @@ export default function LoanApplicationView({ user }: { user: User }) {
           <div className="space-y-6 text-left">
             <label className="text-micro block">Maturity Horizon</label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {[6, 12, 18, 24].map((m) => (
+              {(selectedType?.allowedTerms || [6, 12, 18, 24]).map((m: number) => (
                 <button
                   key={m}
                   type="button"
@@ -209,7 +281,7 @@ export default function LoanApplicationView({ user }: { user: User }) {
               <div className="space-y-5 pt-10 border-t border-white/5 font-medium text-sm">
                 <div className="flex justify-between items-center text-white/40">
                   <span className="text-micro font-bold">Standard Levy</span>
-                  <span className="text-natural-sage font-bold">12.0%</span>
+                  <span className="text-natural-sage font-bold">{(annualRate * 100).toFixed(1)}%</span>
                 </div>
                 <div className="flex justify-between items-center text-white/40">
                   <span className="text-micro font-bold">Accrued Interest</span>

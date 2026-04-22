@@ -7,7 +7,7 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { User, Loan, Payment } from './models.ts';
+import { User, Loan, Payment, LoanType } from './models.ts';
 import { sendWelcomeEmail, sendLoanStatusUpdate } from './src/services/emailService.ts';
 
 dotenv.config();
@@ -37,6 +37,18 @@ async function startServer() {
     }
     await mongoose.connect(MONGODB_URI);
     console.log('✅ Connected to MongoDB');
+
+    // Seed Loan Types if empty
+    const count = await LoanType.countDocuments();
+    if (count === 0) {
+      await LoanType.insertMany([
+        { name: 'Emergency', icon: 'Zap', description: 'Medical emergencies, urgent repairs' },
+        { name: 'Providential', icon: 'ShieldCheck', description: 'Household needs, appliances' },
+        { name: 'Educational', icon: 'GraduationCap', description: 'Tuition fees, school supplies' },
+        { name: 'Business', icon: 'Store', description: 'Small business capital, inventory' },
+      ]);
+      console.log('🌱 Seeded initial loan types');
+    }
   } catch (err) {
     console.error('❌ MongoDB connection error:', err);
   }
@@ -67,7 +79,15 @@ async function startServer() {
   };
 
   const isAdmin = (req: any, res: any, next: any) => {
-    if (req.user.role !== 'Admin') return res.status(403).json({ error: 'Forbidden' });
+    if (req.user.role !== 'System Administrator' && req.user.role !== 'Admin') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    next();
+  };
+
+  const isStaff = (req: any, res: any, next: any) => {
+    const staffRoles = ['System Administrator', 'Admin', 'Evaluator', 'Reviewer', 'Approver', 'Disbursement'];
+    if (!staffRoles.includes(req.user.role)) return res.status(403).json({ error: 'Forbidden' });
     next();
   };
 
@@ -165,6 +185,46 @@ async function startServer() {
     res.json(req.user);
   });
 
+  // Loan Types
+  app.get('/api/loan-types', checkDb, async (req, res) => {
+    try {
+      const types = await LoanType.find().sort({ name: 1 });
+      res.json(types);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/loan-types', authenticate, isAdmin, checkDb, async (req, res) => {
+    try {
+      const type = new LoanType(req.body);
+      await type.save();
+      res.status(201).json(type);
+    } catch (err: any) {
+      handleMongoError(err, res);
+    }
+  });
+
+  app.patch('/api/loan-types/:id', authenticate, isAdmin, checkDb, async (req, res) => {
+    try {
+      const type = await LoanType.findByIdAndUpdate(req.params.id, req.body, { new: true });
+      if (!type) return res.status(404).json({ error: 'Loan type not found' });
+      res.json(type);
+    } catch (err: any) {
+      handleMongoError(err, res);
+    }
+  });
+
+  app.delete('/api/loan-types/:id', authenticate, isAdmin, checkDb, async (req, res) => {
+    try {
+      const type = await LoanType.findByIdAndDelete(req.params.id);
+      if (!type) return res.status(404).json({ error: 'Loan type not found' });
+      res.json({ message: 'Loan type deleted' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get('/api/users', authenticate, isAdmin, checkDb, async (req, res) => {
     try {
       const users = await User.find({}, '-password').sort({ createdAt: -1 });
@@ -237,9 +297,35 @@ async function startServer() {
   // Loans
   app.post('/api/loans', authenticate, checkDb, async (req: any, res) => {
     try {
-      const { loanType, principalAmount, termMonths } = req.body;
+      const { loanType: loanTypeName, principalAmount, termMonths } = req.body;
       
-      const r = 0.12 / 12; // Monthly rate
+      // Basic presence validation
+      if (!loanTypeName || !principalAmount || !termMonths) {
+        return res.status(400).json({ error: 'Missing required fields: loanType, principalAmount, and termMonths are mandatory.' });
+      }
+
+      // Type and range validation
+      if (typeof principalAmount !== 'number' || principalAmount < 1000 || principalAmount > 500000) {
+        return res.status(400).json({ error: 'Invalid principal amount. Must be a numeric value between ₱1,000 and ₱500,000.' });
+      }
+
+      if (typeof termMonths !== 'number' || termMonths <= 0) {
+        return res.status(400).json({ error: 'Invalid term duration. Must be a positive numeric value.' });
+      }
+      
+      const type = await LoanType.findOne({ name: loanTypeName, isActive: true });
+      if (!type) {
+        return res.status(400).json({ error: 'Invalid or inactive loan program selected.' });
+      }
+
+      // Allowed terms validation
+      if (type.allowedTerms && type.allowedTerms.length > 0 && !type.allowedTerms.includes(termMonths)) {
+        return res.status(400).json({ error: `The selected term (${termMonths} months) is not offered for the ${loanTypeName} program. Offereed terms: ${type.allowedTerms.join(', ')} months.` });
+      }
+
+      const rate = type.interestRate || 0.12;
+      
+      const r = rate / 12; // Monthly rate
       const n = termMonths;
       const P = principalAmount;
       const M = P * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
@@ -270,9 +356,9 @@ async function startServer() {
       const loan = new Loan({
         memberId: req.user.memberId,
         name: req.user.name,
-        loanType,
+        loanType: loanTypeName,
         principalAmount,
-        interestRate: 0.12,
+        interestRate: rate,
         termMonths,
         amortizationSchedule: schedule,
         history: [{ status: 'Pending', updatedBy: req.user.name, comment: 'Application submitted via interface' }]
@@ -286,9 +372,10 @@ async function startServer() {
     }
   });
 
-  app.get('/api/loans', authenticate, checkDb, async (req: any, res) => {
+  app.get('/api/loans', authenticate, checkDb, async (req: any, res: any) => {
     try {
-      const query = req.user.role === 'Admin' ? {} : { memberId: req.user.memberId };
+      const staffRoles = ['System Administrator', 'Admin', 'Evaluator', 'Reviewer', 'Approver', 'Disbursement'];
+      const query = staffRoles.includes(req.user.role) ? {} : { memberId: req.user.memberId };
       const loans = await Loan.find(query).sort({ createdAt: -1 });
       res.json(loans);
     } catch (err: any) {
@@ -296,13 +383,14 @@ async function startServer() {
     }
   });
 
-  app.get('/api/loans/:id', authenticate, checkDb, async (req: any, res) => {
+  app.get('/api/loans/:id', authenticate, checkDb, async (req: any, res: any) => {
     try {
       const loan = await Loan.findById(req.params.id);
       if (!loan) return res.status(404).json({ error: 'Loan not found' });
       
-      if (req.user.role !== 'Admin' && loan.memberId !== req.user.memberId) {
-        return res.status(403).json({ error: 'Forbidden: You do not own this loan' });
+      const staffRoles = ['System Administrator', 'Admin', 'Evaluator', 'Reviewer', 'Approver', 'Disbursement'];
+      if (!staffRoles.includes(req.user.role) && loan.memberId !== req.user.memberId) {
+        return res.status(403).json({ error: 'Forbidden: Access denied' });
       }
       
       res.json(loan);
@@ -311,11 +399,45 @@ async function startServer() {
     }
   });
 
-  app.patch('/api/loans/:id/status', authenticate, isAdmin, async (req: any, res) => {
+  app.patch('/api/loans/:id/status', authenticate, isStaff, async (req: any, res: any) => {
     try {
       const { status, comment } = req.body;
       const loan: any = await Loan.findById(req.params.id);
       if (!loan) return res.status(404).json({ error: 'Loan not found' });
+
+      // Workflow Validation
+      const role = req.user.role;
+      const workflow: Record<string, { role: string[], next: string[] }> = {
+        'Pending': { 
+          role: ['Evaluator', 'System Administrator'], 
+          next: ['Under Evaluation', 'Rejected'] 
+        },
+        'Under Evaluation': { 
+          role: ['Reviewer', 'System Administrator'], 
+          next: ['Reviewed', 'Rejected'] 
+        },
+        'Reviewed': { 
+          role: ['Approver', 'System Administrator'], 
+          next: ['Approved', 'Rejected'] 
+        },
+        'Approved': { 
+          role: ['Disbursement', 'System Administrator'], 
+          next: ['Disbursed'] 
+        }
+      };
+
+      const currentStep = workflow[loan.status];
+      if (!currentStep) {
+        return res.status(400).json({ error: `No transitions allowed from status: ${loan.status}` });
+      }
+
+      if (!currentStep.role.includes(role)) {
+        return res.status(403).json({ error: `Role '${role}' is not authorized to transition from '${loan.status}'` });
+      }
+
+      if (!currentStep.next.includes(status)) {
+        return res.status(400).json({ error: `Invalid transition to '${status}' from '${loan.status}'` });
+      }
 
       loan.status = status;
       loan.history.push({ status, updatedBy: req.user.name, comment });

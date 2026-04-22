@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { UserPlus, Mail, Lock, User as UserIcon, CreditCard, ShieldCheck, MapPin, Phone, ListChecks } from 'lucide-react';
+import { UserPlus, Mail, Lock, User as UserIcon, CreditCard, ShieldCheck, MapPin, Phone, ListChecks, Check } from 'lucide-react';
 import PSGCAddressSelectors from '../components/PSGCAddressSelectors';
 import MembersListView from './MembersListView';
 
@@ -20,26 +20,40 @@ export default function AdminMembersView() {
     barangay: '',
     streetAddress: '',
     password: '',
-    role: 'Member' as 'Member' | 'Admin'
+    role: 'Regular Member' as 'Regular Member' | 'Associate Member' | 'System Administrator' | 'Evaluator' | 'Reviewer' | 'Approver' | 'Disbursement'
   });
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let pass = '';
+    for (let i = 0; i < 12; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return pass;
+  };
+
+  const [generatedPassword, setGeneratedPassword] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setSuccess('');
+    
+    const password = generatePassword();
 
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(formData)
+        body: JSON.stringify({ ...formData, password })
       });
       
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
+      setGeneratedPassword(password);
       setSuccess('Account generated successfully.');
       setFormData({
         memberId: '',
@@ -52,7 +66,7 @@ export default function AdminMembersView() {
         barangay: '',
         streetAddress: '',
         password: '',
-        role: 'Member'
+        role: 'Regular Member'
       });
     } catch (err: any) {
       setError(err.message);
@@ -164,8 +178,14 @@ export default function AdminMembersView() {
                       value={formData.role}
                       onChange={e => setFormData({ ...formData, role: e.target.value as any })}
                     >
-                      <option value="Member">General Member</option>
-                      <option value="Admin">Administrator</option>
+                      <option value="Regular Member">Regular Member</option>
+                      <option value="Associate Member">Associate Member</option>
+                      <option value="System Administrator">System Administrator</option>
+                      <option value="Evaluator">Evaluator</option>
+                      <option value="Reviewer">Reviewer</option>
+                      <option value="Approver">Approver</option>
+                      <option value="Disbursement">Disbursement</option>
+
                     </select>
                   </div>
                 </div>
@@ -225,33 +245,35 @@ export default function AdminMembersView() {
                 </div>
               </div>
 
-              <div className="space-y-3 p-8 bg-slate-50 rounded-3xl border border-slate-100">
-                <label className="text-micro font-bold text-slate-400">Temporary Access Token</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
-                  <input
-                    required
-                    type="password"
-                    placeholder="••••••••"
-                    className="organic-input pl-12 bg-white"
-                    value={formData.password}
-                    onChange={e => setFormData({ ...formData, password: e.target.value })}
-                  />
+              {success ? (
+                <div className="p-8 bg-emerald-50 rounded-3xl border border-emerald-100 space-y-4">
+                  <div className="flex items-center gap-3 text-emerald-600">
+                    <Check className="h-5 w-5" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">{success}</span>
+                  </div>
+                  <div className="p-6 bg-white rounded-2xl border border-emerald-100/50 text-center">
+                    <p className="text-micro text-slate-400 mb-2 uppercase">Initial Access Token</p>
+                    <p className="text-2xl font-mono font-black text-natural-ink tracking-widest select-all">{generatedPassword}</p>
+                  </div>
+                  <p className="text-[10px] text-emerald-600/60 font-medium italic text-center">Please provide this token to the member. It will not be shown again.</p>
                 </div>
-                <p className="text-[10px] text-slate-400 font-medium italic">Tokens should be rotated by the member upon initial authentication.</p>
-              </div>
+              ) : (
+                <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 space-y-3">
+                  <h3 className="text-[10px] font-black text-natural-ink uppercase tracking-[0.3em] flex items-center gap-3">
+                    <Lock className="h-4 w-4 text-natural-sage" />
+                    Security Protocol
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                    A secure, high-entropy access token will be automatically generated upon record commitment. 
+                    This token must be rotated by the member during their initial authentication sequence.
+                  </p>
+                </div>
+              )}
 
               {error && (
                 <div className="p-5 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl flex items-center gap-3 border border-red-100">
                   <div className="h-2 w-2 rounded-full bg-red-600 animate-pulse" />
                   {error}
-                </div>
-              )}
-
-              {success && (
-                <div className="p-5 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl flex items-center gap-3 border border-emerald-100">
-                  <div className="h-2 w-2 rounded-full bg-emerald-600" />
-                  {success}
                 </div>
               )}
 

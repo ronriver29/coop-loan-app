@@ -92,14 +92,33 @@ export default function LoanDetailView() {
     );
   }
 
-  const isAdmin = user?.role === 'Admin';
-  const nextStatusOptions = {
-    'Pending': ['Under Evaluation', 'Rejected'],
-    'Under Evaluation': ['Approved', 'Rejected'],
-    'Approved': ['Disbursed'],
-    'Disbursed': [],
-    'Rejected': []
+  const role = user?.role || '';
+  const isSystemAdmin = role === 'System Administrator';
+
+  const workflowConfig: Record<string, { roles: string[], options: string[] }> = {
+    'Pending': { 
+      roles: ['Evaluator', 'System Administrator'], 
+      options: ['Under Evaluation', 'Rejected'] 
+    },
+    'Under Evaluation': { 
+      roles: ['Reviewer', 'System Administrator'], 
+      options: ['Reviewed', 'Rejected'] 
+    },
+    'Reviewed': { 
+      roles: ['Approver', 'System Administrator'], 
+      options: ['Approved', 'Rejected'] 
+    },
+    'Approved': { 
+      roles: ['Disbursement', 'System Administrator'], 
+      options: ['Disbursed'] 
+    }
   };
+
+  const currentStep = workflowConfig[loan.status] || { roles: [], options: [] };
+  const canPerformAction = currentStep.roles.includes(role);
+  const availableOptions = canPerformAction ? currentStep.options : [];
+
+  const isStaff = ['System Administrator', 'Evaluator', 'Reviewer', 'Approver', 'Disbursement'].includes(role);
 
   return (
     <motion.div
@@ -230,38 +249,40 @@ export default function LoanDetailView() {
             </motion.div>
           )}
 
-          {/* Audit Log / History */}
+          {/* Application History */}
           <motion.div variants={item} className="organic-card p-6 sm:p-8 lg:p-12">
             <h3 className="font-bold text-natural-ink flex items-center gap-3 mb-8 lg:mb-12 text-xs lg:text-sm uppercase tracking-[0.2em]">
               <History className="h-5 w-5 text-natural-sage" />
-              Compliance History
+              Application History
             </h3>
             <div className="space-y-8 lg:space-y-12">
-              {loan.history.map((entry, idx) => (
-                <div key={idx} className="flex gap-4 sm:gap-8 group">
-                  <div className="flex flex-col items-center">
-                    <div className={`h-1.5 w-1.5 rounded-full ring-8 ring-natural-bg transition-all ${idx === 0 ? 'bg-natural-sage ring-natural-sage/10 scale-125' : 'bg-slate-300'}`} />
-                    {idx < loan.history.length - 1 && <div className="w-px h-full bg-natural-line my-4 flex-1" />}
-                  </div>
-                  <div className="flex-1 pb-2">
-                    <div className="flex justify-between items-center mb-3">
-                      <p className={`font-bold text-xs uppercase tracking-widest ${idx === 0 ? 'text-natural-ink' : 'text-slate-400'}`}>{entry.status}</p>
-                      <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest font-mono">{new Date(entry.timestamp).toLocaleString()}</p>
+              {[...loan.history]
+                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                .map((entry, idx) => (
+                  <div key={idx} className="flex gap-4 sm:gap-8 group">
+                    <div className="flex flex-col items-center">
+                      <div className={`h-1.5 w-1.5 rounded-full ring-8 ring-natural-bg transition-all ${idx === 0 ? 'bg-natural-sage ring-natural-sage/10 scale-125' : 'bg-slate-300'}`} />
+                      {idx < loan.history.length - 1 && <div className="w-px h-full bg-natural-line my-4 flex-1" />}
                     </div>
-                    <div className="bg-natural-bg p-5 rounded-2xl border border-natural-line group-hover:bg-white transition-colors">
-                      <p className="text-sm text-slate-600 font-medium leading-relaxed">"{entry.comment || 'Authentication required no narrative.'}"</p>
+                    <div className="flex-1 pb-2">
+                      <div className="flex justify-between items-center mb-3">
+                        <p className={`font-bold text-xs uppercase tracking-widest ${idx === 0 ? 'text-natural-ink' : 'text-slate-400'}`}>{entry.status}</p>
+                        <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest font-mono">{new Date(entry.timestamp).toLocaleString()}</p>
+                      </div>
+                      <div className="bg-natural-bg p-5 rounded-2xl border border-natural-line group-hover:bg-white transition-colors text-left">
+                        <p className="text-sm text-slate-600 font-medium leading-relaxed">"{entry.comment || 'Authentication required no narrative.'}"</p>
+                      </div>
+                      <p className="text-[10px] font-bold text-natural-sage/60 uppercase tracking-[0.2em] mt-4 text-left">Authorized by {entry.updatedBy}</p>
                     </div>
-                    <p className="text-[10px] font-bold text-natural-sage/60 uppercase tracking-[0.2em] mt-4">Authorized by {entry.updatedBy}</p>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
           </motion.div>
         </div>
 
         {/* Sidebar Actions */}
         <aside className="space-y-8 lg:sticky lg:top-24">
-          {isAdmin && (
+          {isStaff && (
             <motion.div variants={item} className="organic-card p-6 sm:p-10 bg-natural-sidebar text-white shadow-2xl shadow-black/20 border-none">
               <h3 className="text-micro text-white/30 mb-8 lg:mb-10 flex items-center gap-3">
                 <ShieldCheck className="h-5 w-5 text-natural-sage" />
@@ -281,7 +302,8 @@ export default function LoanDetailView() {
 
                 <div className="space-y-4">
                   <p className="text-micro text-white/40 mb-4">Decision Tree</p>
-                  {(nextStatusOptions[loan.status as keyof typeof nextStatusOptions] || []).map((s) => (
+                  
+                  {availableOptions.map((s) => (
                     <button
                       key={s}
                       disabled={updating}
@@ -295,7 +317,14 @@ export default function LoanDetailView() {
                       {updating ? 'Processing...' : `Command: ${s}`}
                     </button>
                   ))}
-                  {(nextStatusOptions[loan.status as keyof typeof nextStatusOptions] || []).length === 0 && (
+
+                  {availableOptions.length === 0 && !['Disbursed', 'Rejected'].includes(loan.status) && (
+                    <div className="text-center py-10 px-6 border-2 border-dashed border-white/10 rounded-2xl font-medium text-white/30 text-xs sm:text-[10px] uppercase tracking-widest leading-relaxed">
+                      Your current role ({role}) is not assigned to the '{loan.status}' workflow stage.
+                    </div>
+                  )}
+
+                  {['Disbursed', 'Rejected'].includes(loan.status) && (
                     <div className="text-center py-10 px-6 border-2 border-dashed border-white/10 rounded-2xl font-medium text-white/20 text-xs uppercase tracking-widest">
                       Record fully executed and locked in history.
                     </div>

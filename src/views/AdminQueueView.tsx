@@ -53,6 +53,7 @@ export default function AdminQueueView() {
     switch (status) {
       case 'Pending': return 'bg-natural-pending-bg text-natural-pending-text border border-natural-pending-text/10';
       case 'Under Evaluation': return 'bg-natural-eval-bg text-natural-eval-text border border-natural-eval-text/10';
+      case 'Reviewed': return 'bg-purple-50 text-purple-700 border border-purple-100';
       case 'Approved': return 'bg-indigo-50 text-indigo-700 border border-indigo-100';
       case 'Disbursed': return 'bg-emerald-50 text-emerald-700 border border-emerald-100';
       case 'Rejected': return 'bg-red-50 text-red-700 border border-red-100';
@@ -78,7 +79,7 @@ export default function AdminQueueView() {
         variants={item} 
         className="flex flex-wrap items-center gap-2 lg:gap-4 bg-white/50 p-2 rounded-[1.5rem] lg:rounded-[2rem] border border-natural-line backdrop-blur-sm w-full sm:w-fit"
       >
-        {['Pending', 'Under Evaluation', 'Approved', 'Disbursed', 'Rejected', 'All'].map((s) => (
+        {['Pending', 'Under Evaluation', 'Reviewed', 'Approved', 'Disbursed', 'Rejected', 'All'].map((s) => (
           <button
             key={s}
             onClick={() => setFilter(s)}

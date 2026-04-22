@@ -29,6 +29,7 @@ import AdminQueueView from './views/AdminQueueView';
 import AdminMembersView from './views/AdminMembersView';
 import ProfileView from './views/ProfileView';
 import PaymentsView from './views/PaymentsView';
+import LoanTypeManagementView from './views/LoanTypeManagementView';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -113,12 +114,13 @@ function Shell({ user, onLogout, onUpdate }: { user: User, onLogout: () => void,
   };
 
   const navItems = [
-    { label: 'Summary', icon: LayoutDashboard, path: '/', roles: ['Member', 'Admin'] },
-    { label: 'Application', icon: PlusCircle, path: '/apply', roles: ['Member'] },
-    { label: 'Approval', icon: Users, path: '/admin/queue', roles: ['Admin'] },
-    { label: 'Members', icon: Briefcase, path: '/admin/members', roles: ['Admin'] },
-    { label: 'Payments', icon: Wallet, path: '/payments', roles: ['Member', 'Admin'] },
-    { label: 'Profile', icon: Settings, path: '/profile', roles: ['Member', 'Admin'] },
+    { label: 'Summary', icon: LayoutDashboard, path: '/', roles: ['Member', 'Admin', 'Regular Member', 'Associate Member', 'System Administrator', 'Evaluator', 'Reviewer', 'Approver', 'Disbursement'] },
+    { label: 'Application', icon: PlusCircle, path: '/apply', roles: ['Member', 'Regular Member', 'Associate Member'] },
+    { label: 'Approval', icon: Users, path: '/admin/queue', roles: ['Admin', 'System Administrator', 'Evaluator', 'Reviewer', 'Approver', 'Disbursement'] },
+    { label: 'Registry', icon: Briefcase, path: '/admin/members', roles: ['Admin', 'System Administrator'] },
+    { label: 'Programs', icon: Briefcase, path: '/admin/loan-types', roles: ['Admin', 'System Administrator'] },
+    { label: 'Payments', icon: Wallet, path: '/payments', roles: ['Member', 'Admin', 'Regular Member', 'Associate Member', 'System Administrator', 'Evaluator', 'Reviewer', 'Approver', 'Disbursement'] },
+    { label: 'Profile', icon: Settings, path: '/profile', roles: ['Member', 'Admin', 'Regular Member', 'Associate Member', 'System Administrator', 'Evaluator', 'Reviewer', 'Approver', 'Disbursement'] },
   ];
 
   const filteredNav = navItems.filter(item => item.roles.includes(user.role));
@@ -161,7 +163,7 @@ function Shell({ user, onLogout, onUpdate }: { user: User, onLogout: () => void,
                     <div className="h-10 w-10 bg-natural-sage rounded-2xl flex items-center justify-center shadow-lg shadow-black/20">
                       <FileText className="h-5 w-5 text-white" />
                     </div>
-                    <span className="font-display font-black text-2xl tracking-tighter text-white">CoopTrust v2</span>
+                    <span className="font-display font-black text-2xl tracking-tighter text-white">CoopLink</span>
                   </div>
                   <button 
                     onClick={() => setSidebarOpen(false)}
@@ -241,6 +243,7 @@ function Shell({ user, onLogout, onUpdate }: { user: User, onLogout: () => void,
                 <Route path="/tracker" element={<DashboardView user={user} />} />
                 <Route path="/admin/queue" element={<AdminQueueView />} />
                 <Route path="/admin/members" element={<AdminMembersView />} />
+                <Route path="/admin/loan-types" element={<LoanTypeManagementView />} />
                 <Route path="/profile" element={<ProfileView user={user} onUpdate={onUpdate} />} />
                 <Route path="/loan/:id" element={<LoanDetailView />} />
                 <Route path="/payments" element={<PaymentsView />} />
