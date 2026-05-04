@@ -13,6 +13,8 @@ import { sendWelcomeEmail, sendLoanStatusUpdate, sendPasswordResetEmail } from '
 
 dotenv.config();
 
+console.log('📦 Found Environment Keys:', Object.keys(process.env).filter(k => !k.startsWith('npm_') && !k.startsWith('VSCODE_')));
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -27,32 +29,65 @@ const MONGODB_URI = isValidUri ? rawUri : 'mongodb://localhost:27017/loan_manage
 async function startServer() {
   const app = express();
   app.set('trust proxy', 1); // Trust the first proxy (Cloud Run)
+
+  // Request logging
+  app.use((req, res, next) => {
+    console.log(`📡 [${new Date().toISOString()}] ${req.method} ${req.path}`);
+    next();
+  });
+
   app.use(express.json());
   app.use(cookieParser());
 
-  // Connect to MongoDB
-  try {
-    if (!isValidUri && process.env.NODE_ENV === 'production') {
-      console.warn('⚠️  MONGODB_URI is not set or invalid in production environment.');
-      console.warn('Please configure MONGODB_URI in the Secrets panel.');
-    }
-    await mongoose.connect(MONGODB_URI);
-    console.log('✅ Connected to MongoDB');
+  // Health check
+  app.get('/api/health', (req, res) => {
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(), 
+      dbState: mongoose.connection.readyState,
+      env: process.env.NODE_ENV || 'development'
+    });
+  });
 
-    // Seed Loan Types if empty
-    const count = await LoanType.countDocuments();
-    if (count === 0) {
-      await LoanType.insertMany([
-        { name: 'Emergency', icon: 'Zap', description: 'Medical emergencies, urgent repairs' },
-        { name: 'Providential', icon: 'ShieldCheck', description: 'Household needs, appliances' },
-        { name: 'Educational', icon: 'GraduationCap', description: 'Tuition fees, school supplies' },
-        { name: 'Business', icon: 'Store', description: 'Small business capital, inventory' },
-      ]);
-      console.log('🌱 Seeded initial loan types');
+  // Connect to MongoDB (Non-blocking)
+  const connectDB = async () => {
+    try {
+      if (!isValidUri && process.env.NODE_ENV === 'production') {
+        console.warn('⚠️  MONGODB_URI is not set or invalid in production environment.');
+      }
+      await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
+      console.log('✅ Connected to MongoDB');
+
+      // Seed Loan Types if empty
+      const count = await LoanType.countDocuments();
+      if (count === 0) {
+        await LoanType.insertMany([
+          { name: 'Emergency', icon: 'Zap', description: 'Medical emergencies, urgent repairs' },
+          { name: 'Providential', icon: 'ShieldCheck', description: 'Household needs, appliances' },
+          { name: 'Educational', icon: 'GraduationCap', description: 'Tuition fees, school supplies' },
+          { name: 'Business', icon: 'Store', description: 'Small business capital, inventory' },
+        ]);
+        console.log('🌱 Seeded initial loan types');
+      }
+
+      // Seed Admin User if empty
+      const userCount = await User.countDocuments();
+      if (userCount === 0) {
+        const hashedPassword = await bcrypt.hash('admin123', 10);
+        await User.create({
+          memberId: 'ADMIN-001',
+          name: 'System Administrator',
+          email: 'r_rivera@cda.gov.ph',
+          password: hashedPassword,
+          role: 'System Administrator'
+        });
+        console.log('👤 Seeded initial admin user: r_rivera@cda.gov.ph / admin123');
+      }
+    } catch (err) {
+      console.error('❌ MongoDB connection error:', err);
     }
-  } catch (err) {
-    console.error('❌ MongoDB connection error:', err);
-  }
+  };
+  connectDB();
 
   // Database readiness middleware
   const checkDb = (req: any, res: any, next: any) => {
@@ -779,26 +814,38 @@ async function startServer() {
 
   // --- Vite / Static ---
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
+    createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
+    }).then(vite => {
+      app.use(vite.middlewares);
+      console.log('✅ Vite Middleware Attached');
+    }).catch(err => {
+      console.error('❌ Vite Startup Error:', err);
     });
-    app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    // API 404 handler for all methods
-    app.all('/api/*', (req, res) => {
-      res.status(404).json({ error: `API endpoint ${req.method} ${req.path} not found` });
-    });
     // SPA fallback
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
+  // Global API 404 handler (Catch-all for /api/*)
+  app.all('/api/*', (req, res) => {
+    console.warn(`⚠️  404 Not Found: ${req.method} ${req.path}`);
+    res.status(404).json({ 
+      error: `API endpoint not found`,
+      method: req.method,
+      path: req.path
+    });
+  });
+
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log('🚀 --- SERVER BOOT SEQUENCE COMPLETE --- 🚀');
+    console.log(`✅ Server running on http://localhost:${PORT}`);
+    console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
   });
 }
 
