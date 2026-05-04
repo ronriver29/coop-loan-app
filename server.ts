@@ -7,8 +7,9 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 import { User, Loan, Payment, LoanType } from './models.ts';
-import { sendWelcomeEmail, sendLoanStatusUpdate } from './src/services/emailService.ts';
+import { sendWelcomeEmail, sendLoanStatusUpdate, sendPasswordResetEmail } from './src/services/emailService.ts';
 
 dotenv.config();
 
@@ -174,6 +175,96 @@ async function startServer() {
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
+  });
+
+  app.post('/api/auth/forgot-password', checkDb, async (req, res) => {
+    try {
+      const { email } = req.body;
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.status(200).json({ message: 'If an account exists with that email, a reset link has been sent.' });
+      }
+
+      const token = crypto.randomBytes(32).toString('hex');
+      user.resetToken = token;
+      user.resetTokenExpires = new Date(Date.now() + 3600000); // 1 hour
+      await user.save();
+
+      const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
+      const resetLink = `${appUrl}/reset-password?token=${token}`;
+      
+      sendPasswordResetEmail(user.email, user.name, resetLink).catch(console.error);
+
+      res.status(200).json({ message: 'If an account exists with that email, a reset link has been sent.' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/auth/reset-password', checkDb, async (req, res) => {
+    try {
+      const { token, password } = req.body;
+      const user = await User.findOne({ 
+        resetToken: token,
+        resetTokenExpires: { $gt: Date.now() }
+      });
+
+      if (!user) {
+        return res.status(400).json({ error: 'Password reset token is invalid or has expired.' });
+      }
+
+      user.password = await bcrypt.hash(password, 10);
+      user.resetToken = undefined;
+      user.resetTokenExpires = undefined;
+      await user.save();
+
+      res.status(200).json({ message: 'Password has been successfully reset.' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // --- Delinquency Logic ---
+  async function checkDelinquentLoans() {
+    console.log('⏳ Running delinquency check...');
+    const now = new Date();
+    const thresholdDate = new Date(now);
+    thresholdDate.setDate(now.getDate() - 30); // 30 days grace period
+
+    try {
+      const delinquentLoans = await Loan.find({
+        status: 'Disbursed',
+        'amortizationSchedule': {
+          $elemMatch: {
+            status: 'Unpaid',
+            dueDate: { $lt: thresholdDate }
+          }
+        }
+      });
+
+      for (const loan of delinquentLoans) {
+        loan.status = 'Delinquent';
+        loan.history.push({
+          status: 'Delinquent',
+          updatedBy: 'System',
+          comment: 'Auto-flagged: At least one installment is overdue by 30+ days.'
+        });
+        await loan.save();
+        console.log(`🚩 Loan ${loan._id} flagged as Delinquent`);
+      }
+    } catch (err) {
+      console.error('❌ Delinquency check error:', err);
+    }
+  }
+
+  // Run every 6 hours
+  setInterval(checkDelinquentLoans, 6 * 60 * 60 * 1000);
+  // Run once on startup after 10s
+  setTimeout(checkDelinquentLoans, 10000);
+
+  app.post('/api/admin/trigger-delinquency-check', authenticate, isStaff, async (req, res) => {
+    await checkDelinquentLoans();
+    res.json({ message: 'Delinquency check triggered' });
   });
 
   app.post('/api/auth/logout', (req, res) => {
@@ -425,50 +516,70 @@ async function startServer() {
 
   app.patch('/api/loans/:id/status', authenticate, isStaff, async (req: any, res: any) => {
     try {
-      const { status, comment } = req.body;
+      const { status, comment, rejectionReason } = req.body;
       const loan: any = await Loan.findById(req.params.id);
       if (!loan) return res.status(404).json({ error: 'Loan not found' });
 
       // Workflow Validation
       const role = req.user.role;
-      const workflow: Record<string, { role: string[], next: string[] }> = {
-        'Pending': { 
-          role: ['Evaluator', 'System Administrator'], 
-          next: ['Under Evaluation', 'Rejected'] 
+      const isAdmin = role === 'System Administrator' || role === 'Admin';
+      
+      // Define transitions: currentStatus -> targetStatus -> authorizedRoles
+      const transitions: Record<string, Record<string, string[]>> = {
+        'Pending': {
+          'Under Evaluation': ['Evaluator'],
+          'Rejected': ['Evaluator']
         },
-        'Under Evaluation': { 
-          role: ['Reviewer', 'System Administrator'], 
-          next: ['Reviewed', 'Rejected'] 
+        'Under Evaluation': {
+          'Reviewed': ['Reviewer'],
+          'Rejected': ['Reviewer'],
+          'Pending': ['Reviewer'] // Allow sending back to pending if info is missing
         },
-        'Reviewed': { 
-          role: ['Approver', 'System Administrator'], 
-          next: ['Approved', 'Rejected'] 
+        'Reviewed': {
+          'Approved': ['Approver'],
+          'Rejected': ['Approver'],
+          'Under Evaluation': ['Approver'] // Allow sending back to evaluation
         },
-        'Approved': { 
-          role: ['Disbursement', 'System Administrator'], 
-          next: ['Disbursed'] 
+        'Approved': {
+          'Disbursed': ['Disbursement'],
+          'Reviewed': ['Disbursement'] // Allow sending back to reviewed
+        },
+        'Disbursed': {
+           // Closed is handled by payment logic usually, but maybe an admin can close it
+          'Closed': ['Admin', 'System Administrator'],
+          'Delinquent': ['Admin', 'System Administrator']
+        },
+        'Delinquent': {
+          'Disbursed': ['Admin', 'System Administrator'],
+          'Closed': ['Admin', 'System Administrator']
         }
       };
 
-      const currentStep = workflow[loan.status];
-      if (!currentStep) {
-        return res.status(400).json({ error: `No transitions allowed from status: ${loan.status}` });
+      const allowedTransitions = transitions[loan.status];
+      if (!allowedTransitions) {
+        return res.status(400).json({ error: `Loan is in '${loan.status}' status. No further manual transitions are allowed.` });
       }
 
-      if (!currentStep.role.includes(role)) {
-        return res.status(403).json({ error: `Role '${role}' is not authorized to transition from '${loan.status}'` });
+      const authorizedRoles = allowedTransitions[status];
+      if (!authorizedRoles) {
+        return res.status(400).json({ error: `Status '${status}' is not a valid next step from '${loan.status}'` });
       }
 
-      if (!currentStep.next.includes(status)) {
-        return res.status(400).json({ error: `Invalid transition to '${status}' from '${loan.status}'` });
+      if (!isAdmin && !authorizedRoles.includes(role)) {
+        return res.status(403).json({ error: `Role '${role}' is not authorized to move loan from '${loan.status}' to '${status}'` });
       }
 
       loan.status = status;
-      loan.history.push({ status, updatedBy: req.user.name, comment });
+      loan.history.push({ 
+        status, 
+        updatedBy: req.user.name, 
+        comment: comment || `Status updated to ${status}`,
+        rejectionReason: status === 'Rejected' ? rejectionReason : undefined
+      });
 
       if (status === 'Approved') {
         loan.approvedAt = new Date();
-      } else if (status === 'Disbursed') {
+      } else if (status === 'Disbursed' && (!loan.amortizationSchedule || loan.amortizationSchedule.length === 0)) {
         loan.disbursedAt = new Date();
         // Generate Amortization Table
         loan.amortizationSchedule = calculateAmortization(loan.principalAmount, loan.interestRate, loan.termMonths);
@@ -479,7 +590,7 @@ async function startServer() {
       // Notify User
       const borrower = await User.findOne({ memberId: loan.memberId });
       if (borrower && borrower.email) {
-        sendLoanStatusUpdate(borrower.email, borrower.name, loan._id.toString(), status, comment || '').catch(console.error);
+        sendLoanStatusUpdate(borrower.email, borrower.name, loan._id.toString(), status, comment || '', rejectionReason).catch(console.error);
       }
 
       res.json(loan);
@@ -516,26 +627,149 @@ async function startServer() {
   }
 
   // Payments
-  app.post('/api/payments', authenticate, async (req: any, res) => {
+  app.post('/api/payments', authenticate, checkDb, async (req: any, res) => {
     try {
       const { loanId, amountPaid, referenceNumber, method } = req.body;
+      const staffRoles = ['System Administrator', 'Admin', 'Evaluator', 'Reviewer', 'Approver', 'Disbursement'];
+      const isStaff = staffRoles.includes(req.user.role);
+
+      if (!loanId || !amountPaid || !referenceNumber) {
+        return res.status(400).json({ error: 'Missing payment details: loanId, amountPaid, and referenceNumber are required.' });
+      }
+
+      // 1. Check for duplicate reference number
+      const existingPayment = await Payment.findOne({ referenceNumber });
+      if (existingPayment) {
+        return res.status(400).json({ error: 'Reference number already exists. Please provide a unique payment reference.' });
+      }
+
+      // 2. Fetch latest loan details
+      const loan = await Loan.findById(loanId);
+      if (!loan) return res.status(404).json({ error: 'Loan record not found.' });
+
+      // 3. Authorization check
+      if (!isStaff && loan.memberId !== req.user.memberId) {
+        return res.status(403).json({ error: 'Forbidden: You can only record payments for your own loans.' });
+      }
+
+      if (loan.status !== 'Disbursed' && loan.status !== 'Closed') {
+         return res.status(400).json({ error: 'Payments can only be accepted for Disbursed or already Closed loans.' });
+      }
+
+      // 4. Verify against outstanding balance
+      const outstandingBalance = loan.amortizationSchedule
+        .filter(item => item.status === 'Unpaid')
+        .reduce((sum, item) => sum + item.totalPayment, 0);
+
+      if (amountPaid <= 0) {
+        return res.status(400).json({ error: 'Payment amount must be greater than zero.' });
+      }
+
+      // Precision helper
+      const round = (num: number) => Math.round(num * 100) / 100;
+
+      if (amountPaid > round(outstandingBalance) + 0.01) {
+        return res.status(400).json({ 
+          error: `Payment amount (₱${amountPaid.toLocaleString()}) exceeds total outstanding balance (₱${outstandingBalance.toLocaleString()}).` 
+        });
+      }
+
       const payment = new Payment({
         loanId,
-        memberId: req.user.memberId,
+        memberId: loan.memberId,
         amountPaid,
         referenceNumber,
-        method
+        method,
+        verified: false 
       });
       await payment.save();
-      res.status(201).json(payment);
+
+      loan.history.push({
+        status: loan.status,
+        updatedBy: req.user.name,
+        comment: `Payment of ₱${amountPaid.toLocaleString()} recorded and awaiting verification (Ref: ${referenceNumber})`
+      });
+
+      await loan.save();
+      res.status(201).json({ payment, loan });
     } catch (err: any) {
       handleMongoError(err, res);
     }
   });
 
+  app.patch('/api/payments/:id/verify', authenticate, isStaff, checkDb, async (req: any, res: any) => {
+    try {
+      const { role } = req.user;
+      if (role !== 'System Administrator' && role !== 'Disbursement') {
+        return res.status(403).json({ error: 'Forbidden: Only System Administrators and Disbursement staff can verify payments.' });
+      }
+
+      const payment = await Payment.findById(req.params.id);
+      if (!payment) return res.status(404).json({ error: 'Payment record not found.' });
+      if (payment.verified) return res.status(400).json({ error: 'Payment is already verified.' });
+
+      const loan = await Loan.findById(payment.loanId);
+      if (!loan) return res.status(404).json({ error: 'Associated loan record not found.' });
+
+      // Verification Logic (Moved from POST /api/payments)
+      const amountPaid = payment.amountPaid;
+      
+      // Precision helper
+      const round = (num: number) => Math.round(num * 100) / 100;
+
+      // 5. Update Amortization Schedule
+      let remainingPayment = amountPaid;
+      for (let item of loan.amortizationSchedule) {
+        if (item.status === 'Unpaid' && remainingPayment > 0) {
+          if (remainingPayment >= item.totalPayment - 0.01) {
+            item.status = 'Paid';
+            remainingPayment -= item.totalPayment;
+          } else {
+            // Partial payments not allowed for verification step current logic, 
+            // but we consume what we can. Usually we'd want to handle partials better.
+            break;
+          }
+        }
+      }
+
+      // 6. Check if all installments are Paid
+      const allPaid = loan.amortizationSchedule.every(item => item.status === 'Paid');
+      if (allPaid && loan.status !== 'Closed') {
+        loan.status = 'Closed';
+        loan.history.push({ 
+          status: 'Closed', 
+          updatedBy: 'System', 
+          comment: `Loan fully paid and verified via payment ref ${payment.referenceNumber}.` 
+        });
+      }
+
+      loan.history.push({
+        status: loan.status,
+        updatedBy: req.user.name,
+        comment: `Verification confirmed for payment ₱${amountPaid.toLocaleString()} (Ref: ${payment.referenceNumber})`
+      });
+
+      payment.verified = true;
+      await payment.save();
+      await loan.save();
+
+      res.json({ payment, loan });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get('/api/payments', authenticate, async (req: any, res) => {
     try {
-      const query = req.user.role === 'Admin' ? {} : { memberId: req.user.memberId };
+      const { loanId } = req.query;
+      const staffRoles = ['System Administrator', 'Admin', 'Evaluator', 'Reviewer', 'Approver', 'Disbursement'];
+      const isStaff = staffRoles.includes(req.user.role);
+
+      let query: any = isStaff ? {} : { memberId: req.user.memberId };
+      if (loanId) {
+        query.loanId = loanId;
+      }
+
       const payments = await Payment.find(query).sort({ datePaid: -1 });
       res.json(payments);
     } catch (err: any) {
@@ -553,6 +787,11 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
+    // API 404 handler for all methods
+    app.all('/api/*', (req, res) => {
+      res.status(404).json({ error: `API endpoint ${req.method} ${req.path} not found` });
+    });
+    // SPA fallback
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });

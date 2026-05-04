@@ -69,7 +69,7 @@ export const sendWelcomeEmail = async (email: string, name: string, tempPass: st
   });
 };
 
-export const sendLoanStatusUpdate = async (email: string, name: string, loanId: string, status: string, comment: string) => {
+export const sendLoanStatusUpdate = async (email: string, name: string, loanId: string, status: string, comment: string, rejectionReason?: string) => {
   await sendEmail({
     to: email,
     subject: `Loan Application Update: ${status}`,
@@ -80,9 +80,30 @@ export const sendLoanStatusUpdate = async (email: string, name: string, loanId: 
         <p>The status of your loan application (Ref: ${loanId}) has been updated.</p>
         <div style="border-left: 4px solid #6366f1; padding-left: 15px; margin: 20px 0;">
           <p><strong>Current Status:</strong> ${status}</p>
+          ${rejectionReason ? `<p style="color: #dc2626;"><strong>Rejection Reason:</strong> ${rejectionReason}</p>` : ''}
           ${comment ? `<p><strong>Administrator Note:</strong> ${comment}</p>` : ''}
         </div>
         <p>Please log in to your dashboard for more details.</p>
+        <p style="margin-top: 20px; font-size: 12px; color: #64748b;">Institutional Loan Management System - CoopTrust v2</p>
+      </div>
+    `
+  });
+};
+
+export const sendPasswordResetEmail = async (email: string, name: string, resetLink: string) => {
+  await sendEmail({
+    to: email,
+    subject: 'Password Reset Request - CoopTrust v2',
+    html: `
+      <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
+        <h2 style="color: #6366f1;">Password Reset Request</h2>
+        <p>Hello ${name},</p>
+        <p>You are receiving this email because we received a password reset request for your account.</p>
+        <div style="margin: 30px 0;">
+          <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">Reset Password</a>
+        </div>
+        <p>If you did not request a password reset, no further action is required.</p>
+        <p style="font-size: 12px; color: #64748b;">This link will expire in 1 hour.</p>
         <p style="margin-top: 20px; font-size: 12px; color: #64748b;">Institutional Loan Management System - CoopTrust v2</p>
       </div>
     `

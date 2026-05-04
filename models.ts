@@ -11,6 +11,8 @@ const UserSchema = new mongoose.Schema({
   barangay: { type: String, default: '' },
   streetAddress: { type: String, default: '' },
   password: { type: String, required: true },
+  resetToken: { type: String },
+  resetTokenExpires: { type: Date },
   role: { 
     type: String, 
     enum: [
@@ -66,7 +68,9 @@ const LoanSchema = new mongoose.Schema({
       'Reviewed', 
       'Approved', 
       'Disbursed', 
-      'Rejected'
+      'Rejected',
+      'Closed',
+      'Delinquent'
     ], 
     default: 'Pending' 
   },
@@ -78,7 +82,8 @@ const LoanSchema = new mongoose.Schema({
     status: String,
     updatedBy: String,
     timestamp: { type: Date, default: Date.now },
-    comment: String
+    comment: String,
+    rejectionReason: String
   }]
 });
 

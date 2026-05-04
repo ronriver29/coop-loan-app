@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Search, Contact2, Phone, MapPin, User as UserIcon, Edit2, X, Save } from 'lucide-react';
 import { User, UserRole } from '../types';
+import LoadingScreen from '../components/LoadingScreen';
 
 export default function MembersListView() {
   const [members, setMembers] = useState<User[]>([]);
@@ -76,14 +77,7 @@ export default function MembersListView() {
     show: { opacity: 1, y: 0 }
   };
 
-  if (loading && members.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <div className="h-10 w-10 border-4 border-natural-sage border-t-transparent rounded-full animate-spin" />
-        <p className="text-micro animate-pulse">Syncing institutional records...</p>
-      </div>
-    );
-  }
+  if (loading && members.length === 0) return <LoadingScreen />;
 
   return (
     <div className="space-y-8 relative">

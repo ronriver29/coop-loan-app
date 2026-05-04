@@ -21,6 +21,7 @@ import {
   Wrench
 } from 'lucide-react';
 import { User } from '../types';
+import LoadingScreen from '../components/LoadingScreen';
 
 const iconMap: Record<string, any> = {
   Zap,
@@ -51,10 +52,12 @@ export default function LoanApplicationView({ user }: { user: User }) {
   const selectedType = loanTypes.find(t => t.name === formData.loanType);
 
   useEffect(() => {
+    const startTime = Date.now();
+    setTypesLoading(true);
     fetch('/api/loan-types')
       .then(res => res.json())
       .then(data => {
-        const activeTypes = data.filter((t: any) => t.isActive);
+        const activeTypes = (Array.isArray(data) ? data : []).filter((t: any) => t.isActive);
         setLoanTypes(activeTypes);
         if (activeTypes.length > 0) {
           setFormData(prev => ({ 
@@ -63,11 +66,16 @@ export default function LoanApplicationView({ user }: { user: User }) {
             termMonths: activeTypes[0].allowedTerms?.[0] || 12
           }));
         }
-        setTypesLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error(err);
         setError('Failed to fetch loan programs.');
-        setTypesLoading(false);
+      })
+      .finally(() => {
+        const elapsed = Date.now() - startTime;
+        const minimumDelay = 2500;
+        const remaining = Math.max(0, minimumDelay - elapsed);
+        setTimeout(() => setTypesLoading(false), remaining);
       });
   }, []);
 
@@ -79,6 +87,8 @@ export default function LoanApplicationView({ user }: { user: User }) {
       }
     }
   }, [formData.loanType, selectedType]);
+
+  if (typesLoading) return <LoadingScreen />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,8 +174,8 @@ export default function LoanApplicationView({ user }: { user: User }) {
     >
       <motion.div variants={item} className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h2 className="text-3xl lg:text-4xl font-display font-black text-natural-ink tracking-tight">Financial Application</h2>
-          <p className="text-slate-500 text-sm lg:text-base font-medium opacity-80 mt-1">Configure your credit terms below with institutional precision.</p>
+          <h2 className="text-3xl lg:text-4xl font-display font-black text-natural-ink dark:text-white tracking-tight italic uppercase">Financial Application</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm lg:text-base font-medium opacity-80 mt-1 italic">Configure your credit terms below with institutional precision.</p>
         </div>
       </motion.div>
 
@@ -195,13 +205,13 @@ export default function LoanApplicationView({ user }: { user: User }) {
                     onClick={() => setFormData({ ...formData, loanType: type.name })}
                     className={`flex flex-col items-start p-6 rounded-2xl text-left transition-all group ${
                       formData.loanType === type.name 
-                      ? 'bg-natural-sidebar text-white shadow-lg' 
-                      : 'bg-natural-bg text-natural-ink hover:bg-natural-line/50 border border-natural-line'
+                      ? 'bg-natural-sidebar dark:bg-natural-sage text-white shadow-lg' 
+                      : 'bg-natural-bg dark:bg-white/5 text-natural-ink dark:text-white hover:bg-natural-line/50 dark:hover:bg-white/10 border border-natural-line dark:border-white/10'
                     }`}
                   >
                     <Icon className={`h-6 w-6 mb-4 transition-colors ${formData.loanType === type.name ? 'text-white' : 'text-slate-400 group-hover:text-natural-sage'}`} />
-                    <p className={`font-bold text-sm uppercase tracking-widest ${formData.loanType === type.name ? 'text-white' : 'text-natural-ink'}`}>{type.name}</p>
-                    <p className={`text-[10px] leading-relaxed mt-2 font-medium opacity-60 ${formData.loanType === type.name ? 'text-white' : 'text-slate-500'}`}>{type.description}</p>
+                    <p className={`font-bold text-sm uppercase tracking-widest ${formData.loanType === type.name ? 'text-white' : 'text-natural-ink dark:text-white'}`}>{type.name}</p>
+                    <p className={`text-[10px] leading-relaxed mt-2 font-medium opacity-60 ${formData.loanType === type.name ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`}>{type.description}</p>
                   </button>
                 );
               })}
@@ -211,7 +221,7 @@ export default function LoanApplicationView({ user }: { user: User }) {
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
               <label className="text-micro">Calculated Principal</label>
-              <span className="text-2xl lg:text-3xl font-black text-natural-ink font-display">₱{formData.principalAmount.toLocaleString()}</span>
+              <span className="text-2xl lg:text-3xl font-black text-natural-ink dark:text-white font-display">₱{formData.principalAmount.toLocaleString()}</span>
             </div>
             <div className="relative pt-2">
               <input
@@ -219,11 +229,11 @@ export default function LoanApplicationView({ user }: { user: User }) {
                 min="1000"
                 max="500000"
                 step="1000"
-                className="w-full h-1.5 bg-natural-bg rounded-lg appearance-none cursor-pointer accent-natural-sage"
+                className="w-full h-1.5 bg-natural-bg dark:bg-white/10 rounded-lg appearance-none cursor-pointer accent-natural-sage"
                 value={formData.principalAmount}
                 onChange={(e) => setFormData({ ...formData, principalAmount: parseInt(e.target.value) })}
               />
-              <div className="flex justify-between text-[10px] text-slate-400 font-bold tracking-widest mt-4">
+              <div className="flex justify-between text-[10px] text-slate-400 dark:text-slate-500 font-bold tracking-widest mt-4">
                 <span>MIN: ₱1,000</span>
                 <span>MAX: ₱500,000</span>
               </div>
@@ -271,37 +281,63 @@ export default function LoanApplicationView({ user }: { user: User }) {
             
             <div className="space-y-8 lg:space-y-12 relative z-10">
               <div>
-                <p className="text-micro text-white/40 mb-3">Target Annuity</p>
+                <p className="text-micro text-white/40 mb-3 uppercase tracking-widest">Calculated Monthly Installment</p>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-3xl lg:text-4xl font-display font-black">₱{M.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                  <span className="text-[10px] lg:text-xs text-white/30 font-medium lowercase italic">/mo</span>
+                  <span className="text-4xl lg:text-5xl font-display font-black italic">₱{M.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-[10px] lg:text-xs text-white/30 font-bold uppercase italic ml-2">/ month</span>
                 </div>
               </div>
 
-              <div className="space-y-5 pt-10 border-t border-white/5 font-medium text-sm">
-                <div className="flex justify-between items-center text-white/40">
-                  <span className="text-micro font-bold">Standard Levy</span>
-                  <span className="text-natural-sage font-bold">{(annualRate * 100).toFixed(1)}%</span>
+              <div className="space-y-6 pt-10 border-t border-white/5">
+                <div className="flex justify-between items-center">
+                  <span className="text-micro font-bold text-white/40 uppercase tracking-widest">Rate (Annual)</span>
+                  <span className="text-natural-sage font-black bg-natural-sage/10 px-3 py-1 rounded-lg border border-natural-sage/20 italic">{(annualRate * 100).toFixed(1)}% APR</span>
                 </div>
-                <div className="flex justify-between items-center text-white/40">
-                  <span className="text-micro font-bold">Accrued Interest</span>
-                  <span className="text-white">₱{(M * n - P).toLocaleString()}</span>
+                
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center text-white/40">
+                    <span className="text-micro font-bold uppercase tracking-widest">Interest Accrual</span>
+                    <span className="text-white font-bold">₱{(M * n - P).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  </div>
+                  
+                  {/* Visual Breakdown */}
+                  <div className="space-y-3">
+                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden flex shadow-inner">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(P / (M * n)) * 100}%` }}
+                        className="h-full bg-white/40"
+                      />
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${((M * n - P) / (M * n)) * 100}%` }}
+                        className="h-full bg-natural-sage"
+                      />
+                    </div>
+                    <div className="flex justify-between text-[8px] font-black uppercase tracking-[0.2em] text-white/20">
+                      <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-white/40" /> Principal: {((P / (M * n)) * 100).toFixed(0)}%</span>
+                      <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-natural-sage" /> Interest: {(((M * n - P) / (M * n)) * 100).toFixed(0)}%</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center text-white/40 pt-4 border-t border-white/5">
-                  <span className="text-micro font-bold text-white/60">Aggregate Exposure</span>
-                  <span className="text-2xl font-black text-white font-display">₱{(M * n).toLocaleString()}</span>
+
+                <div className="pt-8 border-t border-white/10 flex flex-col gap-1">
+                  <span className="text-micro font-black text-white/20 uppercase tracking-[0.3em] italic mb-1 text-center">Total Financial Maturity</span>
+                  <div className="text-center">
+                    <span className="text-4xl lg:text-5xl font-black text-white font-display italic tracking-tight">₱{(M * n).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="organic-card p-8 bg-slate-100 border-none flex items-start gap-4">
-            <div className="h-12 w-12 rounded-2xl bg-white flex items-center justify-center shrink-0 shadow-sm">
+          <div className="organic-card p-8 bg-slate-100 dark:bg-white/5 border-none flex items-start gap-4">
+            <div className="h-12 w-12 rounded-2xl bg-white dark:bg-slate-900 flex items-center justify-center shrink-0 shadow-sm">
               <ShieldCheck className="h-6 w-6 text-natural-sage" />
             </div>
             <div>
-              <h4 className="font-bold text-natural-ink text-xs uppercase tracking-widest mb-2 font-sans ">CDA Compliance Verified</h4>
-              <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+              <h4 className="font-bold text-natural-ink dark:text-white text-xs uppercase tracking-widest mb-2 font-sans italic">CDA Compliance Verified</h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
                 Application data is subject to RA 10173 standards. All computations are non-binding until formal underwriting.
               </p>
             </div>

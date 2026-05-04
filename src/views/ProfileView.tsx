@@ -83,8 +83,8 @@ export default function ProfileView({ user, onUpdate }: { user: User, onUpdate: 
       className="space-y-12"
     >
       <motion.div variants={item}>
-        <h2 className="text-3xl lg:text-4xl font-display font-black text-natural-ink tracking-tight">Identity Management</h2>
-        <p className="text-slate-500 text-sm lg:text-base font-medium opacity-80 mt-1">Configure your personal credentials and communication preferences.</p>
+        <h2 className="text-3xl lg:text-4xl font-display font-black text-natural-ink dark:text-white tracking-tight italic uppercase">Identity Management</h2>
+        <p className="text-slate-500 dark:text-slate-400 text-sm lg:text-base font-medium opacity-80 mt-1 italic">Configure your personal credentials and communication preferences.</p>
       </motion.div>
 
       <div className="grid lg:grid-cols-[1fr_350px] gap-8 items-start">
@@ -134,8 +134,8 @@ export default function ProfileView({ user, onUpdate }: { user: User, onUpdate: 
               </div>
             </div>
 
-            <div className="space-y-6 pt-6 border-t border-natural-line">
-              <h3 className="text-sm font-bold text-natural-ink uppercase tracking-widest mb-4 flex items-center gap-3">
+            <div className="space-y-6 pt-6 border-t border-natural-line dark:border-white/5">
+              <h3 className="text-sm font-bold text-natural-ink dark:text-white uppercase tracking-widest mb-4 flex items-center gap-3 italic">
                 <MapPin className="h-4 w-4 text-natural-sage" />
                 PSGC Location Details
               </h3>
@@ -161,8 +161,8 @@ export default function ProfileView({ user, onUpdate }: { user: User, onUpdate: 
               </div>
             </div>
 
-            <div className="pt-8 border-t border-natural-line">
-              <h3 className="text-sm font-bold text-natural-ink uppercase tracking-widest mb-8 flex items-center gap-3">
+            <div className="pt-8 border-t border-natural-line dark:border-white/5">
+              <h3 className="text-sm font-bold text-natural-ink dark:text-white uppercase tracking-widest mb-8 flex items-center gap-3 italic">
                 <Key className="h-4 w-4 text-natural-sage" />
                 Security Credentials
               </h3>
@@ -254,12 +254,12 @@ export default function ProfileView({ user, onUpdate }: { user: User, onUpdate: 
             </div>
           </div>
 
-          <div className="organic-card p-8 bg-slate-100 border-none">
-            <h4 className="text-micro text-natural-ink mb-4 flex items-center gap-3">
+          <div className="organic-card p-8 bg-slate-100 dark:bg-white/5 border-none">
+            <h4 className="text-micro text-natural-ink dark:text-white mb-4 flex items-center gap-3 italic">
               <Shield className="h-4 w-4 text-natural-sage" />
               Security Protocol
             </h4>
-            <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium italic">
               Updating your credentials will regenerate your session token. You may be required to re-authenticate periodically to maintain archival integrity.
             </p>
           </div>

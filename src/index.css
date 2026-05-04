@@ -17,15 +17,38 @@
   --color-natural-eval-bg: #EFF6FF;
   --color-natural-eval-text: #1E40AF;
 
+  --color-card-bg: #FFFFFF;
+  --color-input-bg: #F1F5F9;
+
   --shadow-organic: 0 10px 30px rgba(15, 23, 42, 0.04);
 }
 
+@variant dark (&:where(.dark, .dark *));
+
+.dark {
+  --color-natural-bg: #020617;
+  --color-natural-ink: #F8FAFC;
+  --color-natural-sidebar: #01040a;
+  --color-natural-sage: #818CF8;
+  --color-natural-sage-600: #6366F1;
+  --color-natural-line: #1E293B;
+  --color-natural-pending-bg: #451a03;
+  --color-natural-pending-text: #fbbf24;
+  --color-natural-eval-bg: #1e3a8a;
+  --color-natural-eval-text: #93c5fd;
+
+  --color-card-bg: #0F172A;
+  --color-input-bg: #1E293B;
+
+  --shadow-organic: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
 @utility organic-card {
-  @apply bg-white rounded-3xl border border-natural-line shadow-organic transition-all duration-300;
+  @apply bg-card-bg rounded-3xl border border-natural-line shadow-organic transition-all duration-300;
 }
 
 @utility organic-input {
-  @apply bg-[#F1F5F9] border border-transparent rounded-xl px-6 py-4 focus:ring-2 focus:ring-natural-sage/20 focus:bg-white focus:border-natural-sage/30 transition-all duration-300 outline-none;
+  @apply bg-input-bg border border-transparent rounded-xl px-6 py-4 focus:ring-2 focus:ring-natural-sage/20 focus:bg-white dark:focus:bg-slate-900 focus:border-natural-sage/30 transition-all duration-300 outline-none dark:text-white;
 }
 
 @utility text-micro {

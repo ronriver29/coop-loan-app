@@ -30,6 +30,7 @@ export interface LoanHistory {
   updatedBy: string;
   timestamp: string;
   comment?: string;
+  rejectionReason?: string;
 }
 
 export interface Loan {
@@ -40,7 +41,7 @@ export interface Loan {
   principalAmount: number;
   interestRate: number;
   termMonths: number;
-  status: 'Pending' | 'Under Evaluation' | 'Reviewed' | 'Approved' | 'Disbursed' | 'Rejected';
+  status: 'Pending' | 'Under Evaluation' | 'Reviewed' | 'Approved' | 'Disbursed' | 'Rejected' | 'Closed' | 'Delinquent';
   createdAt: string;
   approvedAt?: string;
   disbursedAt?: string;

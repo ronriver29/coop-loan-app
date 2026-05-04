@@ -3,6 +3,8 @@ import { motion } from 'motion/react';
 import { Wallet, History, ArrowRight, CheckCircle2, Filter } from 'lucide-react';
 import { Payment } from '../types';
 
+import LoadingScreen from '../components/LoadingScreen';
+
 export default function PaymentsView() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,6 +21,8 @@ export default function PaymentsView() {
         setLoading(false);
       });
   }, []);
+
+  if (loading) return <LoadingScreen />;
 
   const container = {
     hidden: { opacity: 0 },
@@ -56,12 +60,7 @@ export default function PaymentsView() {
            <p className="text-[10px] hidden sm:block opacity-40 uppercase font-bold tracking-widest">System Time: {new Date().toLocaleDateString()}</p>
         </div>
         
-        {loading ? (
-          <div className="p-20 text-center">
-            <div className="h-8 w-8 border-4 border-natural-sage/20 border-t-natural-sage rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-slate-400 font-medium text-sm">Accessing disbursement history...</p>
-          </div>
-        ) : payments.length === 0 ? (
+        {payments.length === 0 ? (
           <div className="p-20 text-center">
             <div className="h-20 w-20 bg-natural-bg rounded-full flex items-center justify-center mx-auto mb-6 border border-natural-line">
               <Wallet className="h-10 w-10 text-natural-line" />

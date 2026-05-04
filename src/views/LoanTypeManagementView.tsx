@@ -19,6 +19,7 @@ import {
   Wrench,
   AlertCircle
 } from 'lucide-react';
+import LoadingScreen from '../components/LoadingScreen';
 
 const iconMap: Record<string, any> = {
   Zap,
@@ -123,7 +124,7 @@ export default function LoanTypeManagementView() {
     }
   };
 
-  if (loading) return <div className="p-10 text-center animate-pulse">Synchronizing catalog...</div>;
+  if (loading) return <LoadingScreen />;
 
   return (
     <div className="space-y-10">
