@@ -11,7 +11,11 @@ import crypto from 'crypto';
 import { User, Loan, Payment, LoanType } from './models.ts';
 import { sendWelcomeEmail, sendLoanStatusUpdate, sendPasswordResetEmail } from './src/services/emailService.ts';
 
+import fs from 'fs';
+
 dotenv.config();
+
+console.log('📁 Check .env file:', fs.existsSync(path.join(process.cwd(), '.env')));
 
 console.log('📦 Found Environment Keys:', Object.keys(process.env).filter(k => !k.startsWith('npm_') && !k.startsWith('VSCODE_')));
 
@@ -25,6 +29,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
 const rawUri = (process.env.MONGODB_URI || '').trim().replace(/^["']|["']$/g, '');
 const isValidUri = rawUri.startsWith('mongodb://') || rawUri.startsWith('mongodb+srv://');
 const MONGODB_URI = isValidUri ? rawUri : 'mongodb://localhost:27017/loan_manager';
+
+console.log('🔗 Database URI Presence:', {
+  provided: !!process.env.MONGODB_URI,
+  validFormat: isValidUri,
+  prefix: rawUri.substring(0, 15) + '...'
+});
 
 async function startServer() {
   const app = express();
@@ -169,12 +179,21 @@ async function startServer() {
   });
 
   app.post('/api/auth/login', checkDb, async (req, res) => {
+    console.log(`🔐 Login Attempt: ${req.body.email}`);
     try {
       const { email, password } = req.body;
       const user = await User.findOne({ email });
-      if (!user || !(await bcrypt.compare(password, user.password))) {
+      if (!user) {
+        console.warn(`🔐 Login Failed: User not found - ${email}`);
         return res.status(401).json({ error: 'Invalid credentials' });
       }
+      
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        console.warn(`🔐 Login Failed: Password mismatch - ${email}`);
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+
       const token = jwt.sign({ 
         id: user._id, 
         role: user.role, 
@@ -188,6 +207,9 @@ async function startServer() {
         barangay: user.barangay || '',
         streetAddress: user.streetAddress || ''
       }, JWT_SECRET, { expiresIn: '1d' });
+
+      console.log(`🔐 Login Success: ${user.email} (${user.role})`);
+
       res.cookie('token', token, { 
         httpOnly: true, 
         secure: true, 
@@ -208,6 +230,7 @@ async function startServer() {
         streetAddress: user.streetAddress || ''
       });
     } catch (err: any) {
+      console.error(`🔐 Login Error:`, err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -814,15 +837,12 @@ async function startServer() {
 
   // --- Vite / Static ---
   if (process.env.NODE_ENV !== 'production') {
-    createViteServer({
+    const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
-    }).then(vite => {
-      app.use(vite.middlewares);
-      console.log('✅ Vite Middleware Attached');
-    }).catch(err => {
-      console.error('❌ Vite Startup Error:', err);
     });
+    app.use(vite.middlewares);
+    console.log('✅ Vite Middleware Attached');
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));

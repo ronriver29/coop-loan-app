@@ -33,10 +33,16 @@ export default function AuthPage({ onLogin }: { onLogin: (user: User) => void })
           body: JSON.stringify({ email: formData.email, password: formData.password })
         });
         
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-
-        onLogin(data);
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Identity verification failed.');
+          onLogin(data);
+        } else {
+          const text = await res.text();
+          console.error('Non-JSON response:', text);
+          throw new Error(`Server Protocol Error: Received unexpected response type. Status: ${res.status}`);
+        }
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -50,10 +56,14 @@ export default function AuthPage({ onLogin }: { onLogin: (user: User) => void })
           body: JSON.stringify({ email: formData.email })
         });
         
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-
-        setSuccess(data.message);
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Recovery request failed.');
+          setSuccess(data.message);
+        } else {
+          throw new Error(`Server Protocol Error: Status ${res.status}`);
+        }
       } catch (err: any) {
         setError(err.message);
       } finally {
